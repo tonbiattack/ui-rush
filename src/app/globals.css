@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Hiragino Sans",
+    "Noto Sans JP", sans-serif;
+  --color-brand-50: oklch(0.97 0.02 265);
+  --color-brand-100: oklch(0.93 0.04 265);
+  --color-brand-500: oklch(0.62 0.19 265);
+  --color-brand-600: oklch(0.55 0.2 265);
+  --color-brand-700: oklch(0.47 0.18 265);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+  min-height: 100dvh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@utility focus-ring {
+  @apply outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2;
+}
