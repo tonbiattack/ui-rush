@@ -116,19 +116,19 @@ export function DictionaryClient() {
       </section>
 
       <div className="mt-8 flex flex-wrap gap-2">
-        <Link
+        <Link prefetch={false}
           href="/quiz?count=10&time=5&mode=confusable&reveal=manual"
           className="focus-ring bg-ink px-5 py-3 text-sm font-bold text-paper transition-colors hover:bg-ink-soft"
         >
           呼び分け特訓を始める
         </Link>
-        <Link
+        <Link prefetch={false}
           href="/terms"
           className="focus-ring border border-rule-strong px-5 py-3 text-sm font-bold transition-colors hover:border-ink"
         >
           用語図鑑へ
         </Link>
-        <Link
+        <Link prefetch={false}
           href="/"
           className="focus-ring border border-rule-strong px-5 py-3 text-sm font-bold transition-colors hover:border-ink"
         >

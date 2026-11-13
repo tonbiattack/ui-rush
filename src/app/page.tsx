@@ -81,10 +81,10 @@ function HistorySummary({ history, onClear }: { history: History; onClear: () =>
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-        <Link href="/terms" className="focus-ring font-bold underline underline-offset-4">
+        <Link prefetch={false} href="/terms" className="focus-ring font-bold underline underline-offset-4">
           用語図鑑をひらく
         </Link>
-        <Link href="/dictionary" className="focus-ring text-muted underline underline-offset-4 hover:text-ink">
+        <Link prefetch={false} href="/dictionary" className="focus-ring text-muted underline underline-offset-4 hover:text-ink">
           用語と別名
         </Link>
         {answered > 0 && !confirming && (

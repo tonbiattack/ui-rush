@@ -10,7 +10,7 @@ export default function NotFound() {
         URLが変わったか、まだ作られていないページです。
       </p>
       <div className="mt-5">
-        <Link href="/" className="focus-ring bg-ink px-5 py-3 text-sm font-bold text-paper">
+        <Link prefetch={false} href="/" className="focus-ring bg-ink px-5 py-3 text-sm font-bold text-paper">
           ホームへ
         </Link>
       </div>

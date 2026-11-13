@@ -19,7 +19,7 @@ export default function ErrorPage({ reset }: { reset: () => void }) {
         >
           もう一度読み込む
         </button>
-        <Link
+        <Link prefetch={false}
           href="/"
           className="focus-ring border border-rule-strong px-5 py-3 text-sm font-bold hover:border-ink"
         >

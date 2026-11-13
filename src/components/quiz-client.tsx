@@ -365,13 +365,13 @@ export function QuizClient({
           クイズに挑戦すると、間違えた問題や時間切れになった問題がここに溜まります。
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
-          <Link
+          <Link prefetch={false}
             href={`/quiz?count=${questionCount}&time=${timeLimitSec}&mode=normal&reveal=${revealMode}`}
             className="focus-ring bg-ink px-5 py-3 text-sm font-bold text-paper"
           >
             クイズを始める
           </Link>
-          <Link
+          <Link prefetch={false}
             href="/"
             className="focus-ring border border-rule-strong px-5 py-3 text-sm font-bold hover:border-ink"
           >
@@ -431,7 +431,7 @@ export function QuizClient({
                 : `・制限 ${session.timeLimitSec}秒`}
             </p>
           </div>
-          <Link
+          <Link prefetch={false}
             href="/"
             className="focus-ring text-[11px] text-muted underline underline-offset-4 hover:text-ink"
           >

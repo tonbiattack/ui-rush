@@ -80,7 +80,7 @@ export function ResultClient() {
           クイズを最後まで進めると、ここに成績が並びます。
         </p>
         <div className="mt-5">
-          <Link href="/" className="focus-ring bg-ink px-5 py-3 text-sm font-bold text-paper">
+          <Link prefetch={false} href="/" className="focus-ring bg-ink px-5 py-3 text-sm font-bold text-paper">
             ホームへ
           </Link>
         </div>
@@ -235,7 +235,7 @@ export function ResultClient() {
               {reviewIds.length}問
             </span>
           </button>
-          <Link
+          <Link prefetch={false}
             href="/"
             className="focus-ring border border-rule-strong px-4 py-3 text-sm font-bold transition-colors hover:border-ink"
           >

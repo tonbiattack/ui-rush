@@ -4,7 +4,7 @@ import Link from "next/link";
 export function Masthead({ right }: { right?: React.ReactNode }) {
   return (
     <header className="mb-6 flex items-baseline justify-between gap-3 border-b border-ink pb-2">
-      <Link href="/" className="focus-ring flex items-baseline gap-2">
+      <Link prefetch={false} href="/" className="focus-ring flex items-baseline gap-2">
         <span className="instrument text-xl font-semibold tracking-tight">UI RUSH</span>
       </Link>
       {right ? <div className="text-[11px] text-muted">{right}</div> : null}

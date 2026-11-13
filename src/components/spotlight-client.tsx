@@ -238,7 +238,7 @@ export function SpotlightClient({ timeLimitSec }: { timeLimitSec: TimeLimitSec }
     return (
       <main className="flex flex-1 flex-col">
         <p className="text-sm text-muted">出題できる部品がありません。</p>
-        <Link href="/" className="focus-ring mt-3 w-fit bg-ink px-4 py-2 text-sm font-bold text-paper">
+        <Link prefetch={false} href="/" className="focus-ring mt-3 w-fit bg-ink px-4 py-2 text-sm font-bold text-paper">
           ホームへ
         </Link>
       </main>
@@ -260,7 +260,7 @@ export function SpotlightClient({ timeLimitSec }: { timeLimitSec: TimeLimitSec }
             {String(index + 1).padStart(2, "0")}
             <span className="text-muted"> / {targets.length}</span>
           </p>
-          <Link
+          <Link prefetch={false}
             href="/"
             className="focus-ring text-[11px] text-muted underline underline-offset-4 hover:text-ink"
           >
