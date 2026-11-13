@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TermCard } from "@/components/term-card";
+import { Masthead } from "@/components/ui-kit";
 import { CATEGORY_LABELS, QUESTIONS, type QuestionCategory } from "@/lib/questions";
 
 export const metadata: Metadata = {
@@ -23,45 +24,45 @@ export default function TermsPage() {
   })).filter((group) => group.questions.length > 0);
 
   return (
-    <main className="flex flex-1 flex-col gap-4 py-2">
-      <header className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">
-          Dictionary
-        </p>
-        <h1 className="text-xl font-bold sm:text-2xl">用語図鑑</h1>
-        <p className="text-sm leading-relaxed text-slate-600">
-          収録中の{QUESTIONS.length}種類を、分類ごとにまとめました。
-          デモを開いて操作しながら、名前・読み・使い方の指示例まで確認できます。時間制限はありません。
-        </p>
-      </header>
+    <main className="flex flex-1 flex-col">
+      <Masthead right={<span className="instrument">{QUESTIONS.length}語</span>} />
 
-      <nav aria-label="分類" className="flex flex-wrap gap-1.5">
-        {grouped.map((group) => (
-          <a
-            key={group.category}
-            href={`#category-${group.category}`}
-            className="focus-ring rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            {group.label}
-            <span className="ml-1 text-slate-400">{group.questions.length}</span>
-          </a>
-        ))}
-      </nav>
+      <header className="border-b border-ink pb-4">
+        <h1 className="text-[1.75rem] font-bold leading-tight tracking-tight sm:text-[2.25rem]">
+          用語図鑑
+        </h1>
+        <p className="mt-2 max-w-[38rem] text-sm leading-relaxed text-ink-soft">
+          名前・読み・使い方の指示例を、分類ごとに並べました。
+          デモを開けばその場で操作できます。時間制限はありません。
+        </p>
+        <nav aria-label="分類" className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+          {grouped.map((group) => (
+            <a
+              key={group.category}
+              href={`#category-${group.category}`}
+              className="focus-ring text-muted underline underline-offset-4 hover:text-ink"
+            >
+              {group.label}
+              <span className="instrument ml-1">{group.questions.length}</span>
+            </a>
+          ))}
+        </nav>
+      </header>
 
       {grouped.map((group) => (
         <section
           key={group.category}
           id={`category-${group.category}`}
           aria-label={group.label}
-          className="scroll-mt-2 space-y-2"
+          className="mt-6 scroll-mt-4"
         >
-          <h2 className="flex items-baseline gap-2 text-sm font-bold">
-            {group.label}
-            <span className="text-xs font-medium text-slate-400">
-              {group.questions.length}種類
+          <div className="flex items-baseline justify-between gap-2 border-b border-ink pb-1">
+            <h2 className="text-sm font-bold">{group.label}</h2>
+            <span className="instrument text-[11px] text-muted">
+              {group.questions.length}
             </span>
-          </h2>
-          <ul className="space-y-2">
+          </div>
+          <ul>
             {group.questions.map((question) => (
               <li key={question.id}>
                 <TermCard question={question} />
@@ -71,16 +72,16 @@ export default function TermsPage() {
         </section>
       ))}
 
-      <div className="flex flex-col gap-2 pt-1">
+      <div className="mt-8 flex flex-wrap gap-2">
         <Link
           href="/quiz?count=10&time=5&mode=normal&reveal=manual"
-          className="focus-ring rounded-xl bg-brand-600 px-5 py-3 text-center text-sm font-semibold text-white hover:bg-brand-700"
+          className="focus-ring bg-ink px-5 py-3 text-sm font-bold text-paper transition-colors hover:bg-ink-soft"
         >
-          覚えたらクイズに挑戦
+          覚えたらクイズで試す
         </Link>
         <Link
           href="/"
-          className="focus-ring rounded-xl border border-slate-300 bg-white px-5 py-3 text-center text-sm font-semibold hover:bg-slate-50"
+          className="focus-ring border border-rule-strong px-5 py-3 text-sm font-bold transition-colors hover:border-ink"
         >
           ホームへ
         </Link>

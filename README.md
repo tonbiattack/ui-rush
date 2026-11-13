@@ -4,6 +4,7 @@ UIコンポーネントやインタラクションの**見た目・動き・名�
 操作できるデモを見て「このUIは何という？」を4択で答えます。1問3〜8秒のテンポ重視設計。
 
 - 仕様書: [`docs/spec.md`](docs/spec.md)
+- デザイン方針: [`docs/design.md`](docs/design.md)
 
 ## 特徴
 
@@ -49,6 +50,7 @@ src/
     result/page.tsx   結果
     terms/page.tsx    用語図鑑（分類別・デモ付き）
   components/
+    ui-kit.tsx        罫線・標本枠・仕様表などの共通パーツ
     quiz-client.tsx   タイマー・回答・待機/自動進行
     result-client.tsx 結果集計と復習導線
     ui-demos.tsx      20種類の操作可能なUIデモ

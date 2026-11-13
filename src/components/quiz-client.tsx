@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { SpecimenFrame } from "@/components/ui-kit";
 import { UiDemo } from "@/components/ui-demos";
 import { getHistorySnapshot, useHistory } from "@/lib/use-history";
 import { weakQuestionIds } from "@/lib/history";
@@ -39,12 +40,12 @@ const TICK_INTERVAL_MS = 100;
 
 function timerTone(ratio: number): string {
   if (ratio > 0.5) {
-    return "bg-emerald-500";
+    return "bg-ink";
   }
   if (ratio > 0.2) {
-    return "bg-amber-500";
+    return "bg-timeout";
   }
-  return "bg-red-500";
+  return "bg-wrong";
 }
 
 export interface QuizClientProps {
@@ -215,6 +216,24 @@ export function QuizClient({
     state && state.index >= state.session.questions.length - 1,
   );
 
+  // 回答したら解説へ視線を移す。スクロール位置だけを動かし、演出は加えない。
+  const revealRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!showingExplanation) {
+      return;
+    }
+    const node = revealRef.current;
+    if (!node) {
+      return;
+    }
+    const rect = node.getBoundingClientRect();
+    // 既に画面内に見えているなら何もしない。
+    if (rect.top < window.innerHeight * 0.6) {
+      return;
+    }
+    node.scrollIntoView({ block: "start", behavior: "auto" });
+  }, [showingExplanation, state?.index]);
+
   // PCでは数字キー1〜4で回答、Enter / Space で次へ。
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -267,21 +286,21 @@ export function QuizClient({
 
   if (!session) {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center gap-4 py-10 text-center">
+      <main className="flex flex-1 flex-col">
         <h1 className="text-xl font-bold">苦手な問題がまだありません</h1>
-        <p className="max-w-sm text-sm leading-relaxed text-slate-600">
-          クイズに挑戦すると、間違えた問題や時間切れになった問題がここに集まります。
+        <p className="mt-2 max-w-[46ch] text-sm leading-relaxed text-ink-soft">
+          クイズに挑戦すると、間違えた問題や時間切れになった問題がここに溜まります。
         </p>
-        <div className="flex flex-wrap justify-center gap-2">
+        <div className="mt-5 flex flex-wrap gap-2">
           <Link
-            href={`/quiz?count=${questionCount}&time=${timeLimitSec}&mode=normal`}
-            className="focus-ring rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-700"
+            href={`/quiz?count=${questionCount}&time=${timeLimitSec}&mode=normal&reveal=${revealMode}`}
+            className="focus-ring bg-ink px-5 py-3 text-sm font-bold text-paper"
           >
             クイズを始める
           </Link>
           <Link
             href="/"
-            className="focus-ring rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold hover:bg-white"
+            className="focus-ring border border-rule-strong px-5 py-3 text-sm font-bold hover:border-ink"
           >
             ホームへ
           </Link>
@@ -293,8 +312,8 @@ export function QuizClient({
   if (!state || !question || !questionData) {
     return (
       <main className="flex flex-1 items-center justify-center">
-        <p role="status" className="text-sm text-slate-500">
-          集計中…
+        <p role="status" className="instrument text-sm text-muted">
+          準備中…
         </p>
       </main>
     );
@@ -314,110 +333,193 @@ export function QuizClient({
       : null;
 
   return (
-    <main className="flex flex-1 flex-col gap-3">
+    <main className="flex flex-1 flex-col">
       <h1 className="sr-only">UI用語クイズ</h1>
-      <header className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-            <span className="rounded-full bg-slate-200 px-2 py-0.5 font-semibold tabular-nums">
-              {state.index + 1} / {session.questions.length}
-            </span>
-            <span className="rounded-full bg-brand-100 px-2 py-0.5 font-semibold text-brand-700">
+
+      {/* 計器レール: 進捗・残り時間・脱出。細い罫線だけで区切る。 */}
+      <header className="mb-4 border-b border-ink pb-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="flex items-baseline gap-3">
+            <p className="instrument text-sm font-semibold">
+              {String(state.index + 1).padStart(2, "0")}
+              <span className="text-muted"> / {state.session.questions.length}</span>
+            </p>
+            <p className="text-[11px] text-muted">
               {session.mode === "review"
                 ? "苦手復習"
                 : session.mode === "confusable"
                   ? "呼び分け特訓"
                   : "通常"}
-            </span>
-            <span className="hidden sm:inline">制限 {session.timeLimitSec}秒</span>
+              ・制限 {session.timeLimitSec}秒
+            </p>
           </div>
           <Link
             href="/"
-            className="focus-ring rounded-lg px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-200"
+            className="focus-ring text-[11px] text-muted underline underline-offset-4 hover:text-ink"
           >
             やめる
           </Link>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="mt-2 flex items-end gap-4">
           <p
             role="timer"
             data-testid="remaining-seconds"
             aria-label={`残り時間 ${(liveRemaining / 1000).toFixed(1)}秒`}
-            className={`w-20 text-right text-3xl font-bold tabular-nums ${
-              showingExplanation ? "text-slate-500" : ""
+            className={`instrument shrink-0 text-5xl font-semibold leading-none ${
+              showingExplanation ? "text-muted" : "text-ink"
             }`}
           >
             {(liveRemaining / 1000).toFixed(1)}
-            <span className="ml-0.5 text-sm font-semibold text-slate-500">秒</span>
+            <span className="ml-1 text-xs font-medium text-muted">秒</span>
           </p>
-          <div className="flex flex-1 flex-col gap-1">
+          <div className="flex flex-1 flex-col gap-1 pb-1">
             <div
               role="progressbar"
               aria-label="残り時間"
               aria-valuemin={0}
               aria-valuemax={session.timeLimitSec}
               aria-valuenow={Number((liveRemaining / 1000).toFixed(1))}
-              className="h-2.5 overflow-hidden rounded-full bg-slate-200"
+              className="h-1.5 overflow-hidden bg-rule"
             >
               <div
-                className={`h-full rounded-full ${timerTone(ratio)}`}
+                className={`h-full ${timerTone(ratio)}`}
                 style={{ width: `${ratio * 100}%` }}
               />
             </div>
-            {showingExplanation && (
-              <p
-                data-testid="timer-status"
-                className="flex items-center gap-1 text-[11px] font-semibold text-slate-500"
-              >
-                <span aria-hidden="true">⏸</span>
-                {session.revealMode === "auto"
-                  ? "タイマー停止中 — まもなく自動で次へ進みます"
+            <p
+              data-testid="timer-status"
+              className="min-h-4 text-[11px] leading-4 text-muted"
+            >
+              {showingExplanation
+                ? session.revealMode === "auto"
+                  ? "停止中。まもなく自動で次へ進みます"
                   : session.mode === "confusable"
-                    ? "タイマー停止中 — 2つの違いを確認してから次へ進めます"
-                    : "タイマー停止中 — 解説を読んでから次へ進めます"}
-              </p>
-            )}
+                    ? "停止中。2つの違いを確かめてから次へ"
+                    : "停止中。解説を読んでから次へ"
+                : " "}
+            </p>
           </div>
         </div>
       </header>
 
-      <section
-        aria-label="UIデモ"
-        className="flex min-h-60 flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:min-h-72 sm:p-4"
-      >
-        <p className="mb-2 text-xs font-semibold text-slate-500">
-          {session.mode === "confusable"
-            ? "このUIはどっち？（操作して確かめられます）"
-            : "このUIは何という？（操作して確かめられます）"}
-        </p>
-        <div className="flex flex-1 flex-col justify-center">
-          <DemoPanel key={question.questionId} demoType={questionData.demoType} />
-        </div>
-
-        {answer && (
-          <div
-            role="status"
-            aria-live="assertive"
-            className={`mt-2 space-y-2 rounded-xl border px-3 py-2 ${
-              answeredCorrectly ? "border-emerald-300 bg-emerald-50" : "border-red-300 bg-red-50"
-            }`}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        {/* 標本ステージ: 画面で唯一明るい物体。 */}
+        <section aria-label="UIデモ">
+          <SpecimenFrame
+            label="操作できるデモ"
+            footer={
+              <p className="text-[11px] text-muted">
+                {session.mode === "confusable"
+                  ? "どちらの名前か、見分けてください"
+                  : "このUIの名前はどれか"}
+              </p>
+            }
           >
-            <div>
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-bold">
-                <span aria-hidden="true">{answeredCorrectly ? "✓" : "✗"}</span>
-                <span>{answeredCorrectly ? "正解" : timedOut ? "時間切れ" : "不正解"}</span>
-                <span className="font-semibold text-slate-700">
-                  正解は「{questionData.nameJa}」（{questionData.reading}）
-                </span>
-              </p>
-              <p className="mt-0.5 text-xs leading-snug text-slate-600">
-                {questionData.description}
-              </p>
+            <div className="flex min-h-56 flex-col justify-center sm:min-h-64">
+              <DemoPanel key={question.questionId} demoType={questionData.demoType} />
             </div>
+          </SpecimenFrame>
+        </section>
 
+        {/* 回答ブロック */}
+        <section aria-label="選択肢" className="flex flex-col gap-2">
+          <p className="text-[11px] text-muted">
+            {showingExplanation ? "選んだ答えと正解" : "4つから選ぶ（キー1〜4）"}
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+            {question.choices.map((choiceId, index) => {
+              const choice = getQuestion(choiceId);
+              if (!choice) {
+                return null;
+              }
+              const isCorrectChoice = choiceId === question.questionId;
+              const isSelected = selected === choiceId;
+
+              let tone = "border-rule-strong bg-surface hover:border-ink";
+              let mark: string | null = null;
+              let markColor = "text-muted";
+              if (answer) {
+                if (isCorrectChoice) {
+                  tone = "border-correct bg-correct-soft";
+                  mark = "正解";
+                  markColor = "text-correct";
+                } else if (isSelected) {
+                  tone = "border-wrong bg-wrong-soft";
+                  mark = "あなたの回答";
+                  markColor = "text-wrong";
+                } else {
+                  tone = "border-rule bg-surface opacity-55";
+                }
+              }
+
+              return (
+                <button
+                  key={choiceId}
+                  type="button"
+                  disabled={Boolean(answer)}
+                  onClick={() => handleAnswer(choiceId)}
+                  aria-label={`${index + 1}. ${choice.nameJa}`}
+                  className={`focus-ring flex min-h-14 items-center gap-3 border px-3 py-2 text-left transition-colors disabled:cursor-default ${tone}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="instrument w-5 shrink-0 text-xs font-semibold text-muted"
+                  >
+                    {CHOICE_KEYS[index]}
+                  </span>
+                  <span className="flex-1">
+                    <span className="block text-sm font-bold leading-tight">
+                      {choice.nameJa}
+                    </span>
+                    <span className="instrument block text-[11px] text-muted">
+                      {choice.nameEn}
+                    </span>
+                  </span>
+                  {mark && (
+                    <span className={`shrink-0 text-[10px] font-bold ${markColor}`}>
+                      {mark}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {!showingExplanation && (
+            <p className="text-[11px] text-muted">Enter / Space でも次へ進めます</p>
+          )}
+        </section>
+      </div>
+
+      {/* 判定と解説。回答後はここが主役になる。 */}
+      {answer && (
+        <section
+          ref={revealRef}
+          role="status"
+          aria-live="assertive"
+          className="mt-4 scroll-mt-2 border-t-2 border-ink pt-3"
+        >
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <p
+              className={`instrument text-2xl font-semibold ${
+                answeredCorrectly ? "text-correct" : "text-wrong"
+              }`}
+            >
+              {answeredCorrectly ? "正解" : timedOut ? "時間切れ" : "不正解"}
+            </p>
+            <p className="text-sm font-bold">
+              {questionData.nameJa}
+              <span className="ml-2 text-xs font-medium text-muted">
+                {questionData.nameEn}（{questionData.reading}）
+              </span>
+            </p>
+          </div>
+          <p className="mt-1 max-w-[42rem] text-xs leading-relaxed text-ink-soft">
+            {questionData.description}
+          </p>
+
+          <div className="mt-3 flex max-w-[42rem] flex-wrap gap-2 [&>*]:min-w-[16rem] [&>*]:flex-1">
             <InstructionExample question={questionData} />
-
             <DistinctionNote
               question={questionData}
               compareWith={
@@ -426,89 +528,43 @@ export function QuizClient({
                   : undefined
               }
             />
-
-            {autoRevealRemainingMs !== null && (
-              <p className="text-[11px] font-medium text-slate-500">
-                あと{(autoRevealRemainingMs / 1000).toFixed(1)}秒で次へ進みます
-              </p>
-            )}
           </div>
-        )}
-      </section>
 
-      <section aria-label="選択肢" className="grid gap-2 sm:grid-cols-2">
-        {question.choices.map((choiceId, index) => {
-          const choice = getQuestion(choiceId);
-          if (!choice) {
-            return null;
-          }
-          const isCorrectChoice = choiceId === question.questionId;
-          const isSelected = selected === choiceId;
-
-          let tone = "border-slate-300 bg-white hover:border-brand-500 hover:bg-brand-50";
-          if (answer) {
-            if (isCorrectChoice) {
-              tone = "border-emerald-500 bg-emerald-50";
-            } else if (isSelected) {
-              tone = "border-red-500 bg-red-50";
-            } else {
-              tone = "border-slate-200 bg-white opacity-70";
-            }
-          }
-
-          return (
+          <div className="mt-3 flex flex-col gap-1.5 border-t border-rule pt-2 sm:flex-row-reverse sm:items-center sm:justify-end sm:gap-4">
+            <p className="text-[11px] text-muted">
+              {autoRevealRemainingMs !== null
+                ? `あと ${(autoRevealRemainingMs / 1000).toFixed(1)} 秒で次へ`
+                : "Enter / Space でも次へ進めます"}
+            </p>
             <button
-              key={choiceId}
               type="button"
-              disabled={Boolean(answer)}
-              onClick={() => handleAnswer(choiceId)}
-              aria-label={`${index + 1}. ${choice.nameJa}`}
-              className={`focus-ring flex min-h-14 items-center gap-3 rounded-xl border-2 px-3 py-2 text-left transition-colors disabled:cursor-default ${tone}`}
+              onClick={handleAdvance}
+              data-testid="advance-button"
+              className="focus-ring flex w-full items-baseline justify-between gap-3 bg-ink px-5 py-3 text-paper transition-colors hover:bg-ink-soft sm:w-auto sm:min-w-[14rem]"
             >
-              <span
-                aria-hidden="true"
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-600"
-              >
-                {CHOICE_KEYS[index]}
+              <span className="text-sm font-bold">
+                {isLastQuestion ? "結果を見る" : "次の問題へ"}
               </span>
-              <span className="flex-1">
-                <span className="block text-sm font-semibold sm:text-base">{choice.nameJa}</span>
-                <span className="block text-[11px] text-slate-500">{choice.nameEn}</span>
+              <span className="instrument text-[10px] text-paper/70">
+                {isLastQuestion ? "集計" : `${session.timeLimitSec}s`}
               </span>
-              {answer && isCorrectChoice && (
-                <span className="shrink-0 text-[11px] font-bold text-emerald-700">✓ 正解</span>
-              )}
-              {answer && isSelected && !isCorrectChoice && (
-                <span className="shrink-0 text-[11px] font-bold text-red-700">
-                  ✗ あなたの回答
-                </span>
-              )}
             </button>
-          );
-        })}
-      </section>
+          </div>
 
-      <p className="text-center text-[11px] text-slate-500">
-        {showingExplanation
-          ? "Enter / Space でも次へ進めます"
-          : "PCでは数字キー 1〜4 でも回答できます"}
-      </p>
-
-      {showingExplanation && (
-        <div className="sticky bottom-2 z-10 mt-auto">
-          <button
-            type="button"
-            onClick={handleAdvance}
-            data-testid="advance-button"
-            className="focus-ring w-full rounded-2xl bg-brand-600 px-6 py-4 text-base font-bold text-white shadow-lg transition-colors hover:bg-brand-700 active:bg-brand-700"
+          <p
+            className={`mt-2 border-l-2 pl-2 text-[11px] ${
+              answeredCorrectly
+                ? "border-correct text-correct"
+                : "border-wrong text-wrong"
+            }`}
           >
-            {isLastQuestion ? "結果を見る" : "次の問題へ"}
-            <span className="ml-2 text-xs font-semibold opacity-90">
-              {isLastQuestion ? "ここまでの成績を表示" : "ここから制限時間が始まります"}
-            </span>
-          </button>
-        </div>
+            {answeredCorrectly
+              ? "この調子で、名称を声に出して確認しましょう。"
+              : "正解の名称を声に出してから次へ進むと定着します。"}
+          </p>
+        </section>
       )}
+
       <p className="sr-only" aria-live="polite">
         {answering
           ? `第${state.index + 1}問です。制限時間は${session.timeLimitSec}秒です。`

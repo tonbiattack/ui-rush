@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { useHistory } from "@/lib/use-history";
 import { useSettings, saveSettings } from "@/lib/use-settings";
 import { totalAnswered, weakQuestionIds, type History } from "@/lib/history";
-import { CONFUSABLE_PAIRS } from "@/lib/questions";
+import { CONFUSABLE_PAIRS, QUESTIONS } from "@/lib/questions";
 import {
   QUESTION_COUNT_OPTIONS,
   TIME_LIMIT_OPTIONS,
@@ -15,133 +15,100 @@ import {
   type RevealMode,
   type TimeLimitSec,
 } from "@/lib/quiz";
+import { ChoiceTile, Figure, Masthead, SectionHead, SpecRow } from "@/components/ui-kit";
 
 const cx = (...values: Array<string | false | null | undefined>) =>
   values.filter(Boolean).join(" ");
 
-function OptionGroup<T extends number>({
-  label,
-  description,
+function SettingOptions<T extends number>({
   options,
   value,
   onChange,
   suffix,
+  label,
 }: {
-  label: string;
-  description: string;
   options: readonly T[];
   value: T;
   onChange: (value: T) => void;
   suffix: string;
+  label: string;
 }) {
   return (
-    <fieldset className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
-      <legend className="px-1 text-sm font-bold">{label}</legend>
-      <p className="mb-2 text-xs text-slate-500">{description}</p>
-      <div className="grid grid-cols-3 gap-2">
-        {options.map((option) => (
-          <button
-            key={option}
-            type="button"
-            aria-pressed={value === option}
-            onClick={() => onChange(option)}
-            className={cx(
-              "focus-ring rounded-xl border-2 px-2 py-3 text-center transition-colors",
-              value === option
-                ? "border-brand-600 bg-brand-50 text-brand-700"
-                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300",
-            )}
-          >
-            <span className="block text-lg font-bold tabular-nums">{option}</span>
-            <span className="block text-[11px] font-medium">{suffix}</span>
-          </button>
-        ))}
-      </div>
-    </fieldset>
+    <div role="group" aria-label={label} className="flex gap-2">
+      {options.map((option) => (
+        <ChoiceTile key={option} selected={value === option} onClick={() => onChange(option)}>
+          <Figure value={option} unit={suffix} size="sm" />
+        </ChoiceTile>
+      ))}
+    </div>
   );
 }
 
-function sumStat(history: History, key: "correct" | "incorrect" | "timeout"): number {
-  return Object.values(history.stats).reduce((sum, stat) => sum + stat[key], 0);
-}
-
-function HistorySummary({
-  history,
-  onClear,
-}: {
-  history: History;
-  onClear: () => void;
-}) {
+function HistorySummary({ history, onClear }: { history: History; onClear: () => void }) {
   const [confirming, setConfirming] = useState(false);
   const answered = totalAnswered(history);
+  const sum = (key: "correct" | "incorrect" | "timeout") =>
+    Object.values(history.stats).reduce((total, stat) => total + stat[key], 0);
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-bold">学習履歴</h2>
-        <span className="text-xs text-slate-500">{answered}問ぶんの記録</span>
-      </div>
-
+    <section aria-label="学習履歴" className="mt-8">
+      <SectionHead
+        title="これまでの記録"
+        note={answered === 0 ? "まだ記録がありません" : `${answered}問ぶん`}
+      />
       {answered > 0 ? (
-        <dl className="mt-2 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-xl bg-slate-50 px-2 py-2">
-            <dt className="text-[11px] text-slate-500">正解</dt>
-            <dd className="text-lg font-bold tabular-nums text-emerald-700">
-              {sumStat(history, "correct")}
-            </dd>
-          </div>
-          <div className="rounded-xl bg-slate-50 px-2 py-2">
-            <dt className="text-[11px] text-slate-500">不正解</dt>
-            <dd className="text-lg font-bold tabular-nums text-red-700">
-              {sumStat(history, "incorrect")}
-            </dd>
-          </div>
-          <div className="rounded-xl bg-slate-50 px-2 py-2">
-            <dt className="text-[11px] text-slate-500">時間切れ</dt>
-            <dd className="text-lg font-bold tabular-nums text-amber-700">
-              {sumStat(history, "timeout")}
-            </dd>
-          </div>
+        <dl className="grid grid-cols-3 divide-x divide-rule border-b border-rule">
+          {(
+            [
+              { key: "correct", label: "正解", color: "text-correct" },
+              { key: "incorrect", label: "不正解", color: "text-wrong" },
+              { key: "timeout", label: "時間切れ", color: "text-timeout" },
+            ] as const
+          ).map((item) => (
+            <div key={item.key} className="px-3 py-3 first:pl-0">
+              <dt className="text-[11px] text-muted">{item.label}</dt>
+              <dd className={cx("mt-0.5", item.color)}>
+                <Figure value={sum(item.key)} size="sm" />
+              </dd>
+            </div>
+          ))}
         </dl>
       ) : (
-        <p className="mt-1 text-xs text-slate-500">
-          まだ記録がありません。まずは1セッション挑戦してみましょう。
+        <p className="border-b border-rule py-3 text-sm text-muted">
+          1セッション終えると、用語ごとの正解・不正解・時間切れがここに溜まります。
         </p>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Link
-          href="/terms"
-          className="focus-ring rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50"
-        >
-          用語一覧
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+        <Link href="/terms" className="focus-ring font-bold underline underline-offset-4">
+          用語図鑑をひらく
         </Link>
         {answered > 0 && !confirming && (
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            className="focus-ring rounded-lg px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+            className="focus-ring text-muted underline underline-offset-4 hover:text-wrong"
           >
             履歴を削除
           </button>
         )}
         {confirming && (
-          <span className="flex flex-wrap items-center gap-2 rounded-lg bg-red-50 px-2 py-1 text-xs text-red-800">
-            本当に削除しますか？
+          <span className="flex flex-wrap items-center gap-2 text-wrong">
+            本当に削除しますか。
             <button
               type="button"
               onClick={() => {
                 onClear();
                 setConfirming(false);
               }}
-              className="focus-ring rounded bg-red-600 px-2 py-1 font-bold text-white"
+              className="focus-ring border border-wrong bg-wrong px-2 py-1 font-bold text-paper"
             >
               削除する
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              className="focus-ring rounded px-2 py-1 font-semibold"
+              className="focus-ring underline underline-offset-4"
             >
               やめる
             </button>
@@ -157,7 +124,6 @@ export default function HomePage() {
   const { history, clear } = useHistory();
   const settings = useSettings();
 
-  // 画面上の選択はローカルに持ち、開始時に保存する。
   const [timeOverride, setTimeOverride] = useState<TimeLimitSec | null>(null);
   const [countOverride, setCountOverride] = useState<QuestionCount | null>(null);
   const [revealOverride, setRevealOverride] = useState<RevealMode | null>(null);
@@ -167,137 +133,141 @@ export default function HomePage() {
   const revealMode = revealOverride ?? settings.reveal;
   const weakCount = useMemo(() => weakQuestionIds(history).length, [history]);
 
-  const changeTime = (value: TimeLimitSec) => {
-    setTimeOverride(value);
-    saveSettings({ time: value, count: questionCount, reveal: revealMode });
-  };
-  const changeCount = (value: QuestionCount) => {
-    setCountOverride(value);
-    saveSettings({ time: timeLimitSec, count: value, reveal: revealMode });
-  };
-  const changeReveal = (value: RevealMode) => {
-    setRevealOverride(value);
-    saveSettings({ time: timeLimitSec, count: questionCount, reveal: value });
-  };
+  const save = (next: { time?: TimeLimitSec; count?: QuestionCount; reveal?: RevealMode }) =>
+    saveSettings({
+      time: next.time ?? timeLimitSec,
+      count: next.count ?? questionCount,
+      reveal: next.reveal ?? revealMode,
+    });
 
   const start = (mode: QuizMode) => {
-    saveSettings({ time: timeLimitSec, count: questionCount, reveal: revealMode });
+    save({});
     const count = mode === "confusable" ? CONFUSABLE_PAIRS.length * 2 : questionCount;
-    router.push(
-      `/quiz?count=${count}&time=${timeLimitSec}&mode=${mode}&reveal=${revealMode}`,
-    );
+    router.push(`/quiz?count=${count}&time=${timeLimitSec}&mode=${mode}&reveal=${revealMode}`);
   };
 
   return (
-    <main className="flex flex-1 flex-col gap-4 py-2">
-      <header className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">
-          UI Rush
-        </p>
-        <h1 className="text-2xl font-bold leading-tight sm:text-3xl">UI用語を、数秒で。</h1>
-        <p className="text-sm leading-relaxed text-slate-600">
-          操作できるUIデモを見て、名前を4択で答えるクイズです。1問3〜8秒。スマホでもPCでも、すきま時間にどうぞ。
-        </p>
-      </header>
+    <main className="flex flex-1 flex-col">
+      <Masthead right={<span className="instrument">{QUESTIONS.length}語</span>} />
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <OptionGroup
-          label="制限時間"
-          description="1問あたりの秒数。0秒になると時間切れ（不正解）です。"
-          options={TIME_LIMIT_OPTIONS}
-          value={timeLimitSec}
-          onChange={changeTime}
-          suffix="秒"
-        />
-        <OptionGroup
-          label="出題数"
-          description="1セッションの問題数。問題は重複せずシャッフルされます。"
-          options={QUESTION_COUNT_OPTIONS}
-          value={questionCount}
-          onChange={changeCount}
-          suffix="問"
-        />
-      </div>
-
-      <fieldset className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
-        <legend className="px-1 text-sm font-bold">正誤表示のあと</legend>
-        <p className="mb-2 text-xs text-slate-500">
-          正解・不正解と解説を見ている間はタイマーが止まります。
+      <section className="border-b border-ink pb-6">
+        <h1 className="text-[clamp(1.45rem,4.6vw,2.9rem)] font-bold leading-[1.34] tracking-tight sm:leading-[1.28]">
+          UIの名前を、
+          <br aria-hidden="true" />
+          見た瞬間に言えるように。
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+          操作できる実物のデモが1問ずつ出ます。名前を4択で当てるだけ。
         </p>
-        <div className="grid grid-cols-2 gap-2">
-          {(
-            [
-              {
-                value: "manual" as const,
-                label: "自分で次へ",
-                note: "解説を読む時間を確保（おすすめ）",
-              },
-              {
-                value: "auto" as const,
-                label: "自動で次へ",
-                note: "5秒後にテンポよく進む",
-              },
-            ] satisfies Array<{ value: RevealMode; label: string; note: string }>
-          ).map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              aria-pressed={revealMode === option.value}
-              onClick={() => changeReveal(option.value)}
-              className={cx(
-                "focus-ring rounded-xl border-2 px-2 py-2 text-left transition-colors",
-                revealMode === option.value
-                  ? "border-brand-600 bg-brand-50 text-brand-700"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300",
-              )}
-            >
-              <span className="block text-sm font-bold">{option.label}</span>
-              <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">
-                {option.note}
-              </span>
-            </button>
+        <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+          正解と一緒に「AIへの指示例」が出るので、そのまま音声で使えます。
+        </p>
+        <dl className="mt-5 grid max-w-md grid-cols-3 divide-x divide-rule border-y border-rule">
+          {[
+            { value: "20", unit: "語", label: "収録" },
+            { value: "3–8", unit: "秒", label: "1問の制限" },
+            { value: "5", unit: "組", label: "呼び分け特訓" },
+          ].map((item) => (
+            <div key={item.label} className="px-3 py-2 first:pl-0">
+              <dt className="text-[10px] text-muted">{item.label}</dt>
+              <dd className="mt-0.5">
+                <Figure value={item.value} unit={item.unit} size="sm" />
+              </dd>
+            </div>
           ))}
-        </div>
-      </fieldset>
+        </dl>
+      </section>
 
-      <div className="flex flex-col gap-2">
+      <section aria-label="設定" className="mt-6">
+        <SectionHead title="今日の設定" note="開始時に保存されます" />
+        <SpecRow label="制限時間" hint="0秒で時間切れ（不正解）">
+          <SettingOptions
+            options={TIME_LIMIT_OPTIONS}
+            value={timeLimitSec}
+            onChange={(value) => {
+              setTimeOverride(value);
+              save({ time: value });
+            }}
+            suffix="秒"
+            label="制限時間"
+          />
+        </SpecRow>
+        <SpecRow label="出題数" hint="重複なしでシャッフル">
+          <SettingOptions
+            options={QUESTION_COUNT_OPTIONS}
+            value={questionCount}
+            onChange={(value) => {
+              setCountOverride(value);
+              save({ count: value });
+            }}
+            suffix="問"
+            label="出題数"
+          />
+        </SpecRow>
+        <SpecRow label="正誤のあと" hint="表示中はタイマーが止まります">
+          <div role="group" aria-label="正誤表示のあと" className="flex gap-2">
+            <ChoiceTile
+              selected={revealMode === "manual"}
+              onClick={() => {
+                setRevealOverride("manual");
+                save({ reveal: "manual" });
+              }}
+            >
+              自分で次へ
+            </ChoiceTile>
+            <ChoiceTile
+              selected={revealMode === "auto"}
+              onClick={() => {
+                setRevealOverride("auto");
+                save({ reveal: "auto" });
+              }}
+            >
+              5秒で自動
+            </ChoiceTile>
+          </div>
+        </SpecRow>
+      </section>
+
+      <div className="mt-6 flex flex-col gap-2">
         <button
           type="button"
           onClick={() => start("normal")}
-          className="focus-ring rounded-2xl bg-brand-600 px-6 py-4 text-base font-bold text-white shadow-sm transition-colors hover:bg-brand-700 active:bg-brand-700"
+          className="focus-ring flex items-baseline justify-between gap-3 bg-ink px-5 py-4 text-left text-paper transition-colors hover:bg-ink-soft"
         >
-          クイズを始める
-          <span className="ml-2 text-xs font-semibold opacity-90">
-            {questionCount}問・{timeLimitSec}秒
+          <span className="text-base font-bold">クイズを始める</span>
+          <span className="instrument text-xs text-paper/70">
+            {questionCount}問 / {timeLimitSec}秒
           </span>
         </button>
-        <button
-          type="button"
-          onClick={() => start("confusable")}
-          className="focus-ring rounded-2xl border-2 border-brand-300 bg-brand-50 px-6 py-3 text-sm font-semibold text-brand-800 transition-colors hover:bg-brand-100"
-        >
-          呼び分け特訓
-          <span className="ml-2 text-xs font-medium text-brand-700">
-            似たUIを2択で{CONFUSABLE_PAIRS.length * 2}問
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => start("review")}
-          disabled={weakCount === 0}
-          className="focus-ring rounded-2xl border-2 border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          苦手を復習する
-          <span className="ml-2 text-xs font-medium text-slate-500">
-            {weakCount === 0 ? "苦手な問題はまだありません" : `${weakCount}問が対象`}
-          </span>
-        </button>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => start("confusable")}
+            className="focus-ring flex flex-col items-start gap-0.5 border border-ink bg-surface px-4 py-3 text-left transition-colors hover:bg-ink hover:text-paper"
+          >
+            <span className="text-sm font-bold">呼び分け特訓</span>
+            <span className="text-[11px] opacity-70">
+              似たUIを2択で {CONFUSABLE_PAIRS.length * 2}問
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => start("review")}
+            disabled={weakCount === 0}
+            className="focus-ring flex flex-col items-start gap-0.5 border border-rule-strong bg-surface px-4 py-3 text-left transition-colors hover:border-ink disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <span className="text-sm font-bold">苦手を復習</span>
+            <span className="text-[11px] opacity-70">
+              {weakCount === 0 ? "まだ対象がありません" : `${weakCount}問が対象`}
+            </span>
+          </button>
+        </div>
       </div>
 
       <HistorySummary history={history} onClear={clear} />
 
-      <p className="mt-auto pt-2 text-center text-[11px] leading-relaxed text-slate-500">
-        ログイン不要・データはこのブラウザにだけ保存されます。
+      <p className="mt-auto pt-8 text-[11px] text-muted">
+        ログイン不要。記録はこのブラウザにだけ残ります。
       </p>
     </main>
   );

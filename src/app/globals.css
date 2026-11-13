@@ -1,13 +1,25 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Hiragino Sans",
+  --font-sans: var(--font-zen-kaku), ui-sans-serif, system-ui, "Hiragino Sans",
     "Noto Sans JP", sans-serif;
-  --color-brand-50: oklch(0.97 0.02 265);
-  --color-brand-100: oklch(0.93 0.04 265);
-  --color-brand-500: oklch(0.62 0.19 265);
-  --color-brand-600: oklch(0.55 0.2 265);
-  --color-brand-700: oklch(0.47 0.18 265);
+  --font-display: var(--font-barlow), "Barlow Semi Condensed", ui-sans-serif,
+    system-ui, sans-serif;
+
+  --color-paper: #f1f2ed;
+  --color-surface: #fbfbf8;
+  --color-ink: #16191a;
+  --color-ink-soft: #3b4243;
+  --color-muted: #616b6b;
+  --color-rule: #d5d8d0;
+  --color-rule-strong: #aeb3a8;
+  --color-correct: #0f6b55;
+  --color-correct-soft: #e3eee8;
+  --color-wrong: #a8261d;
+  --color-wrong-soft: #f6e5e2;
+  --color-timeout: #7d5800;
+  --color-timeout-soft: #f4e9cf;
+  --color-focus: #ff4a00;
 }
 
 html {
@@ -15,8 +27,17 @@ html {
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "palt" 1;
+  -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
+}
+
+::selection {
+  background-color: var(--color-ink);
+  color: var(--color-paper);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -30,6 +51,19 @@ body {
   }
 }
 
+/* 唯一のアクセントカラーはフォーカスリングに使う。 */
 @utility focus-ring {
-  @apply outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2;
+  outline: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* 計器の数字は常に等幅で桁を揃える。 */
+@utility instrument {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }

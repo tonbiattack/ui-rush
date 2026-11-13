@@ -6,7 +6,7 @@ import {
   type Question,
 } from "@/lib/questions";
 
-/** AIへの指示例。用語を実際に使う一文をそのまま真似できる形で見せる。 */
+/** AIへの指示例。用語をそのまま使う一文として、コピーして使える形で見せる。 */
 export function InstructionExample({
   question,
   className = "",
@@ -15,14 +15,9 @@ export function InstructionExample({
   className?: string;
 }) {
   return (
-    <div className={`rounded-lg bg-slate-900 px-3 py-2 ${className}`}>
-      <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-        <span aria-hidden="true">🤖</span>
-        AIへの指示例
-      </p>
-      <p className="mt-0.5 text-xs leading-relaxed text-slate-100">
-        「{question.exampleInstruction}」
-      </p>
+    <div className={`border border-ink bg-ink px-3 py-2 text-paper ${className}`}>
+      <p className="text-[10px] font-bold text-paper/60">AIへの指示例</p>
+      <p className="mt-1 text-xs leading-relaxed">「{question.exampleInstruction}」</p>
     </div>
   );
 }
@@ -58,18 +53,15 @@ export function DistinctionNote({
   }
 
   return (
-    <div className={`rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 ${className}`}>
-      <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-800">
-        <span aria-hidden="true">⇄</span>
-        呼び分けのコツ
-      </p>
-      <ul className="mt-1 space-y-1">
+    <div className={`border border-rule-strong border-l-2 border-l-ink bg-surface px-3 py-2 ${className}`}>
+      <p className="text-[10px] font-bold text-ink">呼び分けのコツ</p>
+      <ul className="mt-1 space-y-1.5">
         {items.map(({ partner, distinction }) => (
-          <li key={partner.id} className="text-xs leading-relaxed text-amber-950">
-            <span className="font-bold">
-              {question.nameJa} / {partner.nameJa}
+          <li key={partner.id} className="text-xs leading-relaxed text-ink-soft">
+            <span className="font-bold text-ink">
+              {question.nameJa} と {partner.nameJa}
             </span>
-            ：{distinction}
+            <span className="mt-0.5 block">{distinction}</span>
           </li>
         ))}
       </ul>
@@ -77,20 +69,22 @@ export function DistinctionNote({
   );
 }
 
-/** 用語の読み・分類・説明をまとめた見出し。図鑑と結果画面で共用する。 */
+/** 用語の読み・分類・説明。図鑑と結果画面で共用する。 */
 export function TermSummary({ question }: { question: Question }) {
   return (
-    <div className="space-y-1">
+    <div>
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className="text-base font-bold">{question.nameJa}</span>
-        <span className="text-xs text-slate-500">
+        <h3 className="text-base font-bold leading-tight">{question.nameJa}</h3>
+        <span className="instrument text-[11px] text-muted">
           {question.nameEn}（{question.reading}）
         </span>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+        <span className="border border-rule-strong px-1.5 py-px text-[10px] text-muted">
           {CATEGORY_LABELS[question.category]}
         </span>
       </div>
-      <p className="text-sm leading-relaxed text-slate-700">{question.description}</p>
+      <p className="mt-1 max-w-[38rem] text-sm leading-relaxed text-ink-soft">
+        {question.description}
+      </p>
     </div>
   );
 }
