@@ -8,6 +8,12 @@ export interface QuestionStat {
   correct: number;
   incorrect: number;
   timeout: number;
+  /** 最後に解いた日時（ISO文字列）。間隔反復の起点。 */
+  lastAnsweredAt?: string;
+  /** 連続正解数。間隔の伸びに使う。 */
+  streak?: number;
+  /** 次に復習する目安（ISO文字列）。未設定なら未学習。 */
+  dueAt?: string;
 }
 
 export interface History {
@@ -46,6 +52,20 @@ export function isStoredHistory(value: unknown): value is History {
   );
 }
 
+function readCount(input: unknown): number {
+  return typeof input === "number" && Number.isFinite(input) && input >= 0
+    ? Math.floor(input)
+    : 0;
+}
+
+function readIsoDate(input: unknown): string | undefined {
+  if (typeof input !== "string") {
+    return undefined;
+  }
+  const time = Date.parse(input);
+  return Number.isNaN(time) ? undefined : new Date(time).toISOString();
+}
+
 /**
  * 保存データを安全に読み込む。壊れていたり未知の問題IDが混ざっていた場合は
  * 読み取れる範囲だけを復元し、読めなければ空の履歴を返す。
@@ -80,14 +100,13 @@ export function parseHistory(raw: string | null): History {
       continue;
     }
     const value = stat as Partial<QuestionStat>;
-    const toCount = (input: unknown): number =>
-      typeof input === "number" && Number.isFinite(input) && input >= 0
-        ? Math.floor(input)
-        : 0;
     stats[id] = {
-      correct: toCount(value.correct),
-      incorrect: toCount(value.incorrect),
-      timeout: toCount(value.timeout),
+      correct: readCount(value.correct),
+      incorrect: readCount(value.incorrect),
+      timeout: readCount(value.timeout),
+      lastAnsweredAt: readIsoDate(value.lastAnsweredAt),
+      streak: readCount(value.streak),
+      dueAt: readIsoDate(value.dueAt),
     };
   }
 
@@ -98,12 +117,38 @@ export function parseHistory(raw: string | null): History {
   };
 }
 
+/**
+ * 間隔反復の間隔（日）。連続正解に応じて伸ばし、誤答で1日に戻す。
+ * 1日 → 3日 → 7日 → 14日 → 30日 → 60日 と段階的に広げる。
+ */
+export const REVIEW_INTERVALS_DAYS = [1, 3, 7, 14, 30, 60] as const;
+
+export function nextIntervalDays(streak: number): number {
+  const index = Math.min(Math.max(0, streak - 1), REVIEW_INTERVALS_DAYS.length - 1);
+  return REVIEW_INTERVALS_DAYS[index];
+}
+
+function addDays(base: number, days: number): string {
+  return new Date(base + days * 86_400_000).toISOString();
+}
+
 export function recordAnswers(history: History, answers: readonly AnswerRecord[], now = Date.now()): History {
   const stats: Record<string, QuestionStat> = { ...history.stats };
   for (const answer of answers) {
     const current = stats[answer.questionId] ?? emptyStat();
     const key: AnswerOutcome = answer.outcome;
-    stats[answer.questionId] = { ...current, [key]: current[key] + 1 };
+    const next: QuestionStat = { ...current, [key]: current[key] + 1 };
+
+    next.lastAnsweredAt = new Date(now).toISOString();
+    if (answer.outcome === "correct") {
+      next.streak = (current.streak ?? 0) + 1;
+      next.dueAt = addDays(now, nextIntervalDays(next.streak));
+    } else {
+      // 誤答・時間切れは翌日に再確認する。
+      next.streak = 0;
+      next.dueAt = addDays(now, 1);
+    }
+    stats[answer.questionId] = next;
   }
   return { version: STORAGE_VERSION, stats, updatedAt: new Date(now).toISOString() };
 }
@@ -115,6 +160,32 @@ export function weakQuestionIds(history: History): string[] {
     .map(([id]) => id);
 }
 
+/**
+ * 今日の復習対象。期限が来ているもの、または未学習のものを返す。
+ * 時計が逆行しても壊れないよう、未来の日時は「まだ早い」として扱う。
+ */
+export function dueQuestionIds(history: History, now = Date.now(), limit?: number): string[] {
+  const due: Array<{ id: string; dueAt: number }> = [];
+  for (const [id, stat] of Object.entries(history.stats)) {
+    if (!stat.dueAt) {
+      continue;
+    }
+    const dueTime = Date.parse(stat.dueAt);
+    if (Number.isNaN(dueTime) || dueTime > now) {
+      continue;
+    }
+    due.push({ id, dueAt: dueTime });
+  }
+  due.sort((a, b) => a.dueAt - b.dueAt);
+  const ids = due.map((item) => item.id);
+  return typeof limit === "number" ? ids.slice(0, Math.max(0, limit)) : ids;
+}
+
+/** 期限が来ている件数（ホームのバッジ表示用）。 */
+export function dueCount(history: History, now = Date.now()): number {
+  return dueQuestionIds(history, now).length;
+}
+
 export function questionStat(history: History, id: string): QuestionStat {
   return history.stats[id] ?? emptyStat();
 }
@@ -124,4 +195,36 @@ export function totalAnswered(history: History): number {
     (sum, stat) => sum + stat.correct + stat.incorrect + stat.timeout,
     0,
   );
+}
+
+export interface CategoryScore {
+  category: string;
+  correct: number;
+  total: number;
+  accuracy: number;
+}
+
+/** カテゴリ別の正答状況。得意・苦手の把握に使う。 */
+export function categoryScores(history: History): CategoryScore[] {
+  const byCategory = new Map<string, { correct: number; total: number }>();
+  for (const [id, stat] of Object.entries(history.stats)) {
+    const question = QUESTIONS_BY_ID.get(id);
+    if (!question) {
+      continue;
+    }
+    const current = byCategory.get(question.category) ?? { correct: 0, total: 0 };
+    current.correct += stat.correct;
+    current.total += stat.correct + stat.incorrect + stat.timeout;
+    byCategory.set(question.category, current);
+  }
+
+  return Array.from(byCategory.entries())
+    .filter(([, value]) => value.total > 0)
+    .map(([category, value]) => ({
+      category,
+      correct: value.correct,
+      total: value.total,
+      accuracy: Math.round((value.correct / value.total) * 100),
+    }))
+    .sort((a, b) => a.accuracy - b.accuracy);
 }
