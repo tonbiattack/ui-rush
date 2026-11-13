@@ -81,11 +81,19 @@ describe("結果の受け渡し", () => {
     expect(parsed?.questionIds).toEqual(base.questionIds);
   });
 
-  it("件数と制限時間が許可値以外ならnull", () => {
-    const raw = serializeResult({ ...base, questionCount: 15 });
-    expect(parseStoredResult(raw)).toBeNull();
+  it("制限時間が許可値以外ならnull", () => {
     expect(
       parseStoredResult(JSON.stringify({ ...base, version: 1, timeLimitSec: 4 })),
     ).toBeNull();
+  });
+
+  it("モードごとの出題数（タイムアタック等）も受け付ける", () => {
+    const raw = serializeResult({ ...base, questionCount: 15, mode: "timeattack" });
+    expect(parseStoredResult(raw)?.questionCount).toBe(15);
+    expect(parseStoredResult(raw)?.mode).toBe("timeattack");
+  });
+
+  it("出題数が0以下ならnull", () => {
+    expect(parseStoredResult(serializeResult({ ...base, questionCount: 0 }))).toBeNull();
   });
 });

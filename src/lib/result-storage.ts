@@ -1,6 +1,5 @@
 import { QUESTIONS_BY_ID } from "./questions";
 import {
-  isQuestionCount,
   isQuizMode,
   isRevealMode,
   isTimeLimitSec,
@@ -23,6 +22,8 @@ export interface StoredResult {
   answers: AnswerRecord[];
   /** 出題順のスナップショット。結果画面で用語を表示するために保持する。 */
   questionIds: string[];
+  /** セッションの実測時間（ミリ秒）。タイムアタックの平均回答時間に使う。 */
+  elapsedMs?: number;
   finishedAt: string;
 }
 
@@ -49,7 +50,12 @@ export function parseStoredResult(raw: string | null): StoredResult | null {
   if (!isQuizMode(candidate.mode) || !isTimeLimitSec(candidate.timeLimitSec)) {
     return null;
   }
-  if (!isQuestionCount(candidate.questionCount)) {
+  // タイムアタックなど出題数が固定でないモードがあるため、正の整数なら受け付ける。
+  if (
+    typeof candidate.questionCount !== "number" ||
+    !Number.isInteger(candidate.questionCount) ||
+    candidate.questionCount <= 0
+  ) {
     return null;
   }
   if (!Array.isArray(candidate.answers) || !Array.isArray(candidate.questionIds)) {
@@ -83,6 +89,10 @@ export function parseStoredResult(raw: string | null): StoredResult | null {
     questionCount: candidate.questionCount,
     answers,
     questionIds,
+    elapsedMs:
+      typeof candidate.elapsedMs === "number" && Number.isFinite(candidate.elapsedMs)
+        ? candidate.elapsedMs
+        : undefined,
     finishedAt: typeof candidate.finishedAt === "string" ? candidate.finishedAt : "",
   };
 }
