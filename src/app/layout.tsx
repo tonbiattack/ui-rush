@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow_Semi_Condensed, Zen_Kaku_Gothic_New } from "next/font/google";
+import { Analytics } from "@/components/analytics";
 import "./globals.css";
 
 const display = Barlow_Semi_Condensed({
@@ -39,6 +40,7 @@ export default function RootLayout({
         <div className="mx-auto flex min-h-dvh w-full max-w-4xl flex-col px-4 pb-8 pt-5 sm:px-6 sm:pt-6">
           {children}
         </div>
+        <Analytics />
       </body>
     </html>
   );
