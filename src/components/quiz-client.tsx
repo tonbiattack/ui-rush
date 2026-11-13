@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { SpecimenFrame } from "@/components/ui-kit";
 import { UiDemo } from "@/components/ui-demos";
+import { matchesQuestion, useSpeech } from "@/lib/use-speech";
 import { getHistorySnapshot, useHistory } from "@/lib/use-history";
 import { weakQuestionIds } from "@/lib/history";
 import { saveResult } from "@/lib/result-storage";
@@ -16,12 +17,18 @@ import { getQuestion } from "@/lib/questions";
 import {
   advance,
   createConfusableSession,
+  createKeyboardSession,
   createQuizSession,
+  createReverseSession,
+  createSpacedSession,
+  createTimeAttackSession,
   currentQuestion,
   remainingMs,
+  remainingSessionMs,
   startQuiz,
   submitAnswer,
   tick,
+  TIME_ATTACK_MS,
   timeLimitMs,
   type QuestionCount,
   type QuizMode,
@@ -30,6 +37,19 @@ import {
   type RevealMode,
   type TimeLimitSec,
 } from "@/lib/quiz";
+import { dueQuestionIds } from "@/lib/history";
+
+/** モード名。ヘッダーの表示に使う。 */
+const MODE_TITLES: Record<QuizMode, string> = {
+  normal: "通常",
+  review: "苦手復習",
+  confusable: "呼び分け特訓",
+  reverse: "逆引き",
+  keyboard: "キーボード操作",
+  timeattack: "60秒タイムアタック",
+  spaced: "今日の復習",
+  spotlight: "UIパーツ探し",
+};
 
 const DemoPanel = memo(function DemoPanel({ demoType }: { demoType: string }) {
   return <UiDemo demoType={demoType} />;
@@ -79,6 +99,26 @@ function createReviewSession(
   });
 }
 
+/** 間隔反復の復習セッションを作る。期限が来た問題が無ければ null。 */
+function createSpacedReviewSession(
+  questionCount: QuestionCount,
+  timeLimitSec: TimeLimitSec,
+  revealMode: RevealMode,
+  reviewIds?: string[],
+): QuizSession | null {
+  const ids = reviewIds?.length ? reviewIds : dueQuestionIds(getHistorySnapshot());
+  const knownIds = ids.filter((id) => getQuestion(id) !== undefined);
+  if (knownIds.length === 0) {
+    return null;
+  }
+  return createSpacedSession({
+    questionCount: Math.min(questionCount, knownIds.length),
+    timeLimitSec,
+    revealMode,
+    questionIds: knownIds,
+  });
+}
+
 /** クイズ本体。クライアントでのみ描画する（タイマー基準をブラウザの実時間に固定するため）。 */
 export function QuizClient({
   questionCount,
@@ -95,6 +135,9 @@ export function QuizClient({
     if (mode === "review") {
       return createReviewSession(questionCount, timeLimitSec, revealMode, reviewIds);
     }
+    if (mode === "spaced") {
+      return createSpacedReviewSession(questionCount, timeLimitSec, revealMode, reviewIds);
+    }
     if (mode === "confusable") {
       // 出題数は「ペア数×2」で受け取る。
       return createConfusableSession({
@@ -102,6 +145,15 @@ export function QuizClient({
         revealMode,
         pairCount: Math.max(1, Math.floor(questionCount / 2)),
       });
+    }
+    if (mode === "reverse") {
+      return createReverseSession({ questionCount, timeLimitSec, revealMode });
+    }
+    if (mode === "keyboard") {
+      return createKeyboardSession({ questionCount, timeLimitSec, revealMode });
+    }
+    if (mode === "timeattack") {
+      return createTimeAttackSession({ revealMode });
     }
     return createQuizSession({ questionCount, timeLimitSec, mode, revealMode });
   });
@@ -174,6 +226,7 @@ export function QuizClient({
       questionCount: session.questions.length,
       answers: state.answers,
       questionIds: session.questions.map((question) => question.questionId),
+      elapsedMs: performance.now() - state.startedAt,
     });
     router.replace("/result");
   }, [state, session, router]);
@@ -197,6 +250,26 @@ export function QuizClient({
     },
     [applyState],
   );
+
+  // 音声で答えたとき、聞き取れた名称に一致する選択肢を選ぶ。
+  const handleSpoken = useCallback(
+    (transcript: string) => {
+      const previous = stateRef.current;
+      if (!previous || previous.phase !== "answering") {
+        return;
+      }
+      const current = previous.session.questions[previous.index];
+      const match = current?.choices
+        .map((choiceId) => getQuestion(choiceId))
+        .find((choice) => choice && matchesQuestion(transcript, choice));
+      if (match) {
+        handleAnswer(match.id);
+      }
+    },
+    [handleAnswer],
+  );
+
+  const speech = useSpeech(handleSpoken);
 
   // 解説を読み終えたら次へ。タイマーはここから計り直す。
   const handleAdvance = useCallback(() => {
@@ -331,6 +404,13 @@ export function QuizClient({
     showingExplanation && state.revealDeadline !== null
       ? Math.max(0, state.revealDeadline - now)
       : null;
+  // タイムアタックはセッション全体の残り時間を主役にする。
+  const sessionRemaining = remainingSessionMs(state, now);
+  const isTimeAttack = sessionRemaining !== null;
+  const promptText =
+    session.mode === "reverse" || session.mode === "spaced"
+      ? questionData.reversePrompt
+      : null;
 
   return (
     <main className="flex flex-1 flex-col">
@@ -345,12 +425,10 @@ export function QuizClient({
               <span className="text-muted"> / {state.session.questions.length}</span>
             </p>
             <p className="text-[11px] text-muted">
-              {session.mode === "review"
-                ? "苦手復習"
-                : session.mode === "confusable"
-                  ? "呼び分け特訓"
-                  : "通常"}
-              ・制限 {session.timeLimitSec}秒
+              {MODE_TITLES[session.mode]}
+              {isTimeAttack
+                ? `・1問 ${session.timeLimitSec}秒`
+                : `・制限 ${session.timeLimitSec}秒`}
             </p>
           </div>
           <Link
@@ -370,34 +448,44 @@ export function QuizClient({
               showingExplanation ? "text-muted" : "text-ink"
             }`}
           >
-            {(liveRemaining / 1000).toFixed(1)}
+            {((isTimeAttack ? (sessionRemaining ?? 0) : liveRemaining) / 1000).toFixed(1)}
             <span className="ml-1 text-xs font-medium text-muted">秒</span>
           </p>
           <div className="flex flex-1 flex-col gap-1 pb-1">
             <div
               role="progressbar"
-              aria-label="残り時間"
+              aria-label={isTimeAttack ? "残り時間（セッション）" : "残り時間"}
               aria-valuemin={0}
-              aria-valuemax={session.timeLimitSec}
-              aria-valuenow={Number((liveRemaining / 1000).toFixed(1))}
+              aria-valuemax={isTimeAttack ? 60 : session.timeLimitSec}
+              aria-valuenow={Number(
+                ((isTimeAttack ? (sessionRemaining ?? 0) : liveRemaining) / 1000).toFixed(1),
+              )}
               className="h-1.5 overflow-hidden bg-rule"
             >
               <div
-                className={`h-full ${timerTone(ratio)}`}
-                style={{ width: `${ratio * 100}%` }}
+                className={`h-full ${isTimeAttack ? "bg-ink" : timerTone(ratio)}`}
+                style={{
+                  width: `${
+                    isTimeAttack
+                      ? ((sessionRemaining ?? 0) / TIME_ATTACK_MS) * 100
+                      : ratio * 100
+                  }%`,
+                }}
               />
             </div>
             <p
               data-testid="timer-status"
               className="min-h-4 text-[11px] leading-4 text-muted"
             >
-              {showingExplanation
-                ? session.revealMode === "auto"
-                  ? "停止中。まもなく自動で次へ進みます"
-                  : session.mode === "confusable"
-                    ? "停止中。2つの違いを確かめてから次へ"
-                    : "停止中。解説を読んでから次へ"
-                : " "}
+              {isTimeAttack
+                ? `正解 ${state.answers.filter((item) => item.outcome === "correct").length} 問`
+                : showingExplanation
+                  ? session.revealMode === "auto"
+                    ? "停止中。まもなく自動で次へ進みます"
+                    : session.mode === "confusable"
+                      ? "停止中。2つの違いを確かめてから次へ"
+                      : "停止中。解説を読んでから次へ"
+                  : " "}
             </p>
           </div>
         </div>
@@ -407,26 +495,66 @@ export function QuizClient({
         {/* 標本ステージ: 画面で唯一明るい物体。 */}
         <section aria-label="UIデモ">
           <SpecimenFrame
-            label="操作できるデモ"
+            label={promptText ? "要件" : "操作できるデモ"}
             footer={
               <p className="text-[11px] text-muted">
                 {session.mode === "confusable"
                   ? "どちらの名前か、見分けてください"
-                  : "このUIの名前はどれか"}
+                  : session.mode === "reverse" || session.mode === "spaced"
+                    ? "この要件に合うUIはどれか"
+                    : session.mode === "keyboard"
+                      ? "この操作に使うキーはどれか"
+                      : "このUIの名前はどれか"}
               </p>
             }
           >
-            <div className="flex min-h-56 flex-col justify-center sm:min-h-64">
-              <DemoPanel key={question.questionId} demoType={questionData.demoType} />
-            </div>
+            {promptText ? (
+              <div className="flex min-h-56 flex-col justify-center gap-3 sm:min-h-64">
+                <p className="text-base font-bold leading-relaxed sm:text-lg">
+                  {promptText}
+                </p>
+                {answer ? (
+                  <div className="border border-rule bg-surface p-2">
+                    <DemoPanel key={question.questionId} demoType={questionData.demoType} />
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted">
+                    答え合わせのあとに、該当するUIのデモが出ます。
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="flex min-h-56 flex-col justify-center sm:min-h-64">
+                <DemoPanel key={question.questionId} demoType={questionData.demoType} />
+              </div>
+            )}
           </SpecimenFrame>
         </section>
 
         {/* 回答ブロック */}
         <section aria-label="選択肢" className="flex flex-col gap-2">
-          <p className="text-[11px] text-muted">
-            {showingExplanation ? "選んだ答えと正解" : "4つから選ぶ（キー1〜4）"}
-          </p>
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-[11px] text-muted">
+              {showingExplanation ? "選んだ答えと正解" : "4つから選ぶ（キー1〜4）"}
+            </p>
+            {speech.supported && (
+              <button
+                type="button"
+                onClick={speech.listening ? speech.stop : speech.start}
+                disabled={Boolean(answer)}
+                className="focus-ring border border-rule-strong px-2 py-0.5 text-[11px] font-bold disabled:opacity-40"
+                aria-pressed={speech.listening}
+              >
+                {speech.listening ? "聞き取り中…" : "声で答える"}
+              </button>
+            )}
+          </div>
+          {speech.error && (
+            <p className="text-[11px] text-wrong">{speech.error}</p>
+          )}
+          {speech.transcript && (
+            <p className="text-[11px] text-muted">聞き取り: 「{speech.transcript}」</p>
+          )}
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
             {question.choices.map((choiceId, index) => {
               const choice = getQuestion(choiceId);
