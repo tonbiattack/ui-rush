@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useHistory } from "@/lib/use-history";
 import { useSettings, saveSettings } from "@/lib/use-settings";
-import { totalAnswered, weakQuestionIds, type History } from "@/lib/history";
-import { CONFUSABLE_PAIRS, QUESTIONS } from "@/lib/questions";
+import { useBestScores } from "@/lib/use-best-scores";
+import { dueCount, totalAnswered, weakQuestionIds, type History } from "@/lib/history";
+import { CONFUSABLE_PAIRS, KEYBOARD_QUESTIONS, QUESTIONS } from "@/lib/questions";
 import {
   QUESTION_COUNT_OPTIONS,
   TIME_LIMIT_OPTIONS,
@@ -83,6 +84,9 @@ function HistorySummary({ history, onClear }: { history: History; onClear: () =>
         <Link href="/terms" className="focus-ring font-bold underline underline-offset-4">
           用語図鑑をひらく
         </Link>
+        <Link href="/dictionary" className="focus-ring text-muted underline underline-offset-4 hover:text-ink">
+          用語と別名
+        </Link>
         {answered > 0 && !confirming && (
           <button
             type="button"
@@ -132,6 +136,8 @@ export default function HomePage() {
   const questionCount = countOverride ?? settings.count;
   const revealMode = revealOverride ?? settings.reveal;
   const weakCount = useMemo(() => weakQuestionIds(history).length, [history]);
+  const reviewDue = useMemo(() => dueCount(history), [history]);
+  const best = useBestScores();
 
   const save = (next: { time?: TimeLimitSec; count?: QuestionCount; reveal?: RevealMode }) =>
     saveSettings({
@@ -160,11 +166,16 @@ export default function HomePage() {
         <p className="mt-1 text-sm leading-relaxed text-ink-soft">
           正誤表示のあとに、その用語を使ったAIへの指示例が出ます。
         </p>
-        <dl className="mt-5 grid max-w-md grid-cols-3 divide-x divide-rule border-y border-rule">
+        <dl className="mt-5 grid max-w-lg grid-cols-2 divide-x divide-rule border-y border-rule sm:grid-cols-4">
           {[
-            { value: "20", unit: "語", label: "収録" },
+            { value: String(QUESTIONS.length), unit: "語", label: "収録" },
             { value: "3–8", unit: "秒", label: "1問の制限" },
-            { value: "5", unit: "組", label: "呼び分け特訓" },
+            { value: String(KEYBOARD_QUESTIONS.length), unit: "問", label: "キーボード操作" },
+            {
+              value: String(best.timeAttack),
+              unit: "問",
+              label: "タイムアタック自己ベスト",
+            },
           ].map((item) => (
             <div key={item.label} className="px-3 py-2 first:pl-0">
               <dt className="text-[10px] text-muted">{item.label}</dt>
@@ -240,12 +251,53 @@ export default function HomePage() {
         <div className="grid gap-2 sm:grid-cols-2">
           <button
             type="button"
+            onClick={() => start("reverse")}
+            className="focus-ring flex flex-col items-start gap-0.5 border border-ink bg-surface px-4 py-3 text-left transition-colors hover:bg-ink hover:text-paper"
+          >
+            <span className="text-sm font-bold">逆引き</span>
+            <span className="text-[11px] opacity-70">
+              作りたい動きから名称を答える {questionCount}問
+            </span>
+          </button>
+          <button
+            type="button"
             onClick={() => start("confusable")}
             className="focus-ring flex flex-col items-start gap-0.5 border border-ink bg-surface px-4 py-3 text-left transition-colors hover:bg-ink hover:text-paper"
           >
             <span className="text-sm font-bold">呼び分け特訓</span>
             <span className="text-[11px] opacity-70">
               似たUIを2択で {CONFUSABLE_PAIRS.length * 2}問
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => start("keyboard")}
+            className="focus-ring flex flex-col items-start gap-0.5 border border-rule-strong bg-surface px-4 py-3 text-left transition-colors hover:border-ink"
+          >
+            <span className="text-sm font-bold">キーボード操作</span>
+            <span className="text-[11px] opacity-70">
+              Tab・Esc などの基本操作 {KEYBOARD_QUESTIONS.length}問
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => start("spotlight")}
+            className="focus-ring flex flex-col items-start gap-0.5 border border-rule-strong bg-surface px-4 py-3 text-left transition-colors hover:border-ink"
+          >
+            <span className="text-sm font-bold">UIパーツ探し</span>
+            <span className="text-[11px] opacity-70">
+              模擬画面から部品を押して答える 10問
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => start("timeattack")}
+            className="focus-ring flex flex-col items-start gap-0.5 border border-rule-strong bg-surface px-4 py-3 text-left transition-colors hover:border-ink"
+          >
+            <span className="text-sm font-bold">60秒タイムアタック</span>
+            <span className="text-[11px] opacity-70">
+              60秒で何問正解できるか
+              {best.timeAttack > 0 ? `（ベスト ${best.timeAttack}問）` : ""}
             </span>
           </button>
           <button
@@ -257,6 +309,19 @@ export default function HomePage() {
             <span className="text-sm font-bold">苦手を復習</span>
             <span className="text-[11px] opacity-70">
               {weakCount === 0 ? "まだ対象がありません" : `${weakCount}問が対象`}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => start("spaced")}
+            disabled={reviewDue === 0}
+            className="focus-ring flex flex-col items-start gap-0.5 border border-rule-strong bg-surface px-4 py-3 text-left transition-colors hover:border-ink disabled:cursor-not-allowed disabled:opacity-45 sm:col-span-2"
+          >
+            <span className="text-sm font-bold">今日の復習</span>
+            <span className="text-[11px] opacity-70">
+              {reviewDue === 0
+                ? "今日が期限の用語はありません"
+                : `${reviewDue}語が復習の期限です`}
             </span>
           </button>
         </div>

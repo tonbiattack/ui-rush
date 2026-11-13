@@ -79,6 +79,12 @@ export default function TermsPage() {
           クイズを始める
         </Link>
         <Link
+          href="/dictionary"
+          className="focus-ring border border-rule-strong px-5 py-3 text-sm font-bold transition-colors hover:border-ink"
+        >
+          用語と別名
+        </Link>
+        <Link
           href="/"
           className="focus-ring border border-rule-strong px-5 py-3 text-sm font-bold transition-colors hover:border-ink"
         >
