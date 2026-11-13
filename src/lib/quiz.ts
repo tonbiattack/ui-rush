@@ -1,9 +1,11 @@
 import {
+  ALL_QUESTIONS,
   CATEGORY_FALLBACK,
   CONFUSABLE_PAIRS,
   QUESTIONS,
   QUESTIONS_BY_ID,
   isConfusable,
+  type ConfusablePair,
   type Question,
 } from "./questions";
 import { sample, shuffle, type Rng } from "./random";
@@ -19,11 +21,23 @@ export const AUTO_REVEAL_MS = 5000;
 export type TimeLimitSec = (typeof TIME_LIMIT_OPTIONS)[number];
 export type QuestionCount = (typeof QUESTION_COUNT_OPTIONS)[number];
 /**
- * - normal: 全用語から4択
+ * - normal: 全用語から4択（デモを見て名称を答える）
  * - review: 苦手な問題だけ
  * - confusable: 呼び間違えやすいペアの2択特訓
+ * - reverse: 自然言語の要件から名称を答える逆引き
+ * - keyboard: キーボード操作の用語
+ * - timeattack: 60秒で何問解けるか
+ * - spaced: 忘却曲線に合わせた今日の復習
  */
-export type QuizMode = "normal" | "review" | "confusable";
+export type QuizMode =
+  | "normal"
+  | "review"
+  | "confusable"
+  | "reverse"
+  | "keyboard"
+  | "timeattack"
+  | "spaced"
+  | "spotlight";
 /**
  * 正誤と解説を見せたあとの進め方。
  * - manual: タイマーを止めて待機し、ユーザーが「次へ」を押すまで進まない（既定）
@@ -42,6 +56,16 @@ export interface QuizSession {
   timeLimitSec: TimeLimitSec;
   revealMode: RevealMode;
   questions: QuizQuestion[];
+  /**
+   * セッション全体の制限時間（ミリ秒）。timeattack だけ設定する。
+   * null なら問題ごとの制限時間だけで進む。
+   */
+  sessionLimitMs?: number | null;
+  /**
+   * 正誤表示の長さ（ミリ秒）。省略時は revealMode に従う。
+   * タイムアタックは短くしてテンポを優先する。
+   */
+  revealMs?: number;
 }
 
 export type AnswerOutcome = "correct" | "incorrect" | "timeout";
@@ -66,6 +90,10 @@ export interface QuizState {
   deadline: number;
   /** 正誤表示を自動で終える時刻。手動送りのときは null（ユーザーの操作まで待つ）。 */
   revealDeadline: number | null;
+  /** セッション開始時刻。 */
+  startedAt: number;
+  /** セッション全体の締切時刻。timeattack 以外は null。 */
+  sessionDeadline: number | null;
 }
 
 export interface QuizResult {
@@ -88,24 +116,50 @@ export function isQuestionCount(value: unknown): value is QuestionCount {
 }
 
 export function isQuizMode(value: unknown): value is QuizMode {
-  return value === "normal" || value === "review" || value === "confusable";
+  return (
+    value === "normal" ||
+    value === "review" ||
+    value === "confusable" ||
+    value === "reverse" ||
+    value === "keyboard" ||
+    value === "timeattack" ||
+    value === "spaced" ||
+    value === "spotlight"
+  );
 }
 
 export function isRevealMode(value: unknown): value is RevealMode {
   return value === "manual" || value === "auto";
 }
 
-function buildChoices(question: Question, rng: Rng): string[] {
+function buildChoices(
+  question: Question,
+  rng: Rng,
+  pool: readonly Question[] = QUESTIONS,
+): string[] {
   const isDistractorCandidate = (candidate: Question) =>
     candidate.id !== question.id && !isConfusable(question.id, candidate.id);
 
-  // まず同カテゴリから。足りなければ近い系統のカテゴリを順に補充する。
+  // まず同じ種類・同カテゴリから。足りなければ近い系統のカテゴリを順に補充する。
   const sameCategory = shuffle(
-    QUESTIONS.filter(
+    pool.filter(
       (candidate) => isDistractorCandidate(candidate) && candidate.category === question.category,
     ),
     rng,
   );
+
+  // 同じ種類の別カテゴリ（キーボード操作など）を次に優先する。
+  const sameKind = shuffle(
+    pool.filter(
+      (candidate) =>
+        isDistractorCandidate(candidate) &&
+        candidate.category !== question.category &&
+        !sameCategory.some((picked) => picked.id === candidate.id),
+    ),
+    rng,
+  );
+
+  const byId = new Map([...QUESTIONS, ...pool].map((item) => [item.id, item]));
 
   const fallback: Question[] = [];
   for (const category of CATEGORY_FALLBACK[question.category]) {
@@ -115,7 +169,8 @@ function buildChoices(question: Question, rng: Rng): string[] {
           (candidate) =>
             isDistractorCandidate(candidate) &&
             candidate.category === category &&
-            !sameCategory.some((picked) => picked.id === candidate.id),
+            !sameCategory.some((picked) => picked.id === candidate.id) &&
+            !sameKind.some((picked) => picked.id === candidate.id),
         ),
         rng,
       ),
@@ -127,15 +182,25 @@ function buildChoices(question: Question, rng: Rng): string[] {
         (candidate) =>
           isDistractorCandidate(candidate) &&
           !sameCategory.some((picked) => picked.id === candidate.id) &&
+          !sameKind.some((picked) => picked.id === candidate.id) &&
           !fallback.some((picked) => picked.id === candidate.id),
       ),
       rng,
     ),
   );
 
-  const distractors = [...sameCategory, ...fallback]
-    .slice(0, CHOICE_COUNT - 1)
-    .map((candidate) => candidate.id);
+  const chosen = [...sameCategory, ...sameKind];
+  // 種類のプールだけでは4択に足りない場合に備え、必ず4つそろえる。
+  for (const candidate of fallback) {
+    if (chosen.length >= CHOICE_COUNT - 1) {
+      break;
+    }
+    if (!chosen.some((picked) => picked.id === candidate.id) && byId.has(candidate.id)) {
+      chosen.push(candidate);
+    }
+  }
+
+  const distractors = chosen.slice(0, CHOICE_COUNT - 1).map((candidate) => candidate.id);
 
   return shuffle([question.id, ...distractors], rng);
 }
@@ -150,6 +215,28 @@ export interface CreateSessionOptions {
   /** 復習モードで出題対象にする問題ID。省略時は全問題。 */
   questionIds?: readonly string[];
   rng?: Rng;
+}
+
+/** 同じカテゴリから誤答を寄せた4択を作る（通常・逆引き・キーボード共通）。 */
+function buildSessionQuestions(
+  source: readonly Question[],
+  questionCount: number,
+  rng: Rng,
+): QuizQuestion[] {
+  const pickedIds = sample(
+    source.map((question) => question.id),
+    Math.min(questionCount, source.length),
+    rng,
+  );
+
+  return pickedIds.map((id) => {
+    const question = QUESTIONS_BY_ID.get(id);
+    if (!question) {
+      throw new Error(`Unknown question id: ${id}`);
+    }
+    // 同じ種類（用語/キー）から誤答を寄せる。キーの問題に用語が混ざらない。
+    return { questionId: id, choices: buildChoices(question, rng, source) };
+  });
 }
 
 /**
@@ -181,6 +268,86 @@ export function createQuizSession({
   return { mode, timeLimitSec, revealMode, questions };
 }
 
+/** 逆引き: 自然言語の要件から名称を答える。選択肢は同じ4択ロジックを使う。 */
+export function createReverseSession({
+  questionCount,
+  timeLimitSec,
+  revealMode = "manual",
+  rng = Math.random,
+}: Omit<CreateSessionOptions, "questionIds">): QuizSession {
+  return {
+    mode: "reverse",
+    timeLimitSec,
+    revealMode,
+    questions: buildSessionQuestions(QUESTIONS, questionCount, rng),
+  };
+}
+
+/** キーボード操作: キーの用語だけを出題する。 */
+export function createKeyboardSession({
+  questionCount,
+  timeLimitSec,
+  revealMode = "manual",
+  rng = Math.random,
+}: Omit<CreateSessionOptions, "questionIds">): QuizSession {
+  return {
+    mode: "keyboard",
+    timeLimitSec,
+    revealMode,
+    questions: buildSessionQuestions(
+      ALL_QUESTIONS.filter((question) => question.kind === "keyboard"),
+      questionCount,
+      rng,
+    ),
+  };
+}
+
+/** 60秒タイムアタック。全用語から重複なしで出し、尽きたら先頭へ戻る。 */
+export const TIME_ATTACK_MS = 60_000;
+/** タイムアタック中の1問あたりの持ち時間。 */
+export const TIME_ATTACK_PER_QUESTION_SEC = 8 as const;
+/** タイムアタックで正誤を見せる時間。テンポを優先して短くする。 */
+export const TIME_ATTACK_REVEAL_MS = 700;
+
+export function createTimeAttackSession({
+  revealMode = "manual",
+  rng = Math.random,
+}: {
+  revealMode?: RevealMode;
+  rng?: Rng;
+}): QuizSession {
+  return {
+    mode: "timeattack",
+    timeLimitSec: TIME_ATTACK_PER_QUESTION_SEC,
+    revealMode,
+    // 回答したら短く正誤だけ見せて、すぐ次へ進む。
+    revealMs: TIME_ATTACK_REVEAL_MS,
+    sessionLimitMs: TIME_ATTACK_MS,
+    questions: buildSessionQuestions(QUESTIONS, QUESTIONS.length, rng),
+  };
+}
+
+/** 間隔反復: 期限が来た問題だけを出題する。questionIds が空なら作らない。 */
+export function createSpacedSession({
+  questionCount,
+  timeLimitSec,
+  revealMode = "manual",
+  questionIds,
+  rng = Math.random,
+}: CreateSessionOptions): QuizSession {
+  return {
+    ...createQuizSession({
+      questionCount,
+      timeLimitSec,
+      mode: "spaced",
+      revealMode,
+      questionIds,
+      rng,
+    }),
+    mode: "spaced",
+  };
+}
+
 /**
  * 呼び間違えやすいペアを、両方向（Aを問う・Bを問う）で2択出題する。
  * 選択肢は「正解＋紛らわしい相手」だけにして、名称の違いに集中できるようにする。
@@ -200,13 +367,24 @@ export function createConfusableSession({
   const availablePairs = CONFUSABLE_PAIRS.filter(
     (pair) => QUESTIONS_BY_ID.has(pair.a) && QUESTIONS_BY_ID.has(pair.b),
   );
-  const pairs = sample(
-    availablePairs,
-    Math.min(pairCount ?? availablePairs.length, availablePairs.length),
-    rng,
-  );
+  const shuffledPairs = sample(availablePairs, availablePairs.length, rng);
 
-  const questions: QuizQuestion[] = pairs.flatMap((pair) =>
+  // 1セッション内で同じ用語を二重に出さない（複数のペアに現れる用語があるため）。
+  const used = new Set<string>();
+  const picked: ConfusablePair[] = [];
+  for (const pair of shuffledPairs) {
+    if (picked.length >= (pairCount ?? availablePairs.length)) {
+      break;
+    }
+    if (used.has(pair.a) || used.has(pair.b)) {
+      continue;
+    }
+    used.add(pair.a);
+    used.add(pair.b);
+    picked.push(pair);
+  }
+
+  const questions: QuizQuestion[] = picked.flatMap((pair) =>
     [pair.a, pair.b].map((answerId) => {
       const partnerId = answerId === pair.a ? pair.b : pair.a;
       return {
@@ -229,6 +407,11 @@ export function timeLimitMs(seconds: TimeLimitSec): number {
 }
 
 export function startQuiz(session: QuizSession, now: number): QuizState {
+  const sessionDeadline =
+    session.sessionLimitMs === null || session.sessionLimitMs === undefined
+      ? null
+      : now + session.sessionLimitMs;
+
   if (session.questions.length === 0) {
     return {
       session,
@@ -237,6 +420,8 @@ export function startQuiz(session: QuizSession, now: number): QuizState {
       phase: "finished",
       deadline: now,
       revealDeadline: null,
+      startedAt: now,
+      sessionDeadline,
     };
   }
 
@@ -247,7 +432,17 @@ export function startQuiz(session: QuizSession, now: number): QuizState {
     phase: "answering",
     deadline: now + timeLimitMs(session.timeLimitSec),
     revealDeadline: null,
+    startedAt: now,
+    sessionDeadline,
   };
+}
+
+/** セッション全体の残り時間。制限が無ければ null。 */
+export function remainingSessionMs(state: QuizState, now: number): number | null {
+  if (state.sessionDeadline === null) {
+    return null;
+  }
+  return Math.max(0, state.sessionDeadline - now);
 }
 
 export function currentQuestion(state: QuizState): QuizQuestion | null {
@@ -267,12 +462,16 @@ export function remainingMs(state: QuizState, now: number): number {
 
 function reveal(state: QuizState, answers: AnswerRecord[], now: number): QuizState {
   // 正誤と解説の表示中はタイマーを止める。自動送りのときだけ終了時刻を決める。
+  // revealMs を持つセッション（タイムアタック）は、その短い時間だけ表示して進む。
+  const duration = state.session.revealMs;
+  const autoAdvance = duration !== undefined || state.session.revealMode === "auto";
   return {
     ...state,
     answers,
     phase: "revealed",
-    revealDeadline:
-      state.session.revealMode === "auto" ? now + AUTO_REVEAL_MS : null,
+    revealDeadline: autoAdvance
+      ? now + (duration ?? AUTO_REVEAL_MS)
+      : null,
   };
 }
 
@@ -340,8 +539,23 @@ export function advance(state: QuizState, now: number): QuizState {
     return state;
   }
 
+  // セッション全体の時間切れは、次の問題へ進む前に確定する。
+  if (state.sessionDeadline !== null && now >= state.sessionDeadline) {
+    return { ...state, phase: "finished", revealDeadline: null };
+  }
+
   const nextIndex = state.index + 1;
   if (nextIndex >= state.session.questions.length) {
+    // タイムアタックは問題を使い切ったら先頭へ戻って続ける。
+    if (state.session.mode === "timeattack") {
+      return {
+        ...state,
+        index: 0,
+        phase: "answering",
+        deadline: now + timeLimitMs(state.session.timeLimitSec),
+        revealDeadline: null,
+      };
+    }
     return { ...state, phase: "finished", revealDeadline: null };
   }
 
@@ -360,6 +574,15 @@ export function advance(state: QuizState, now: number): QuizState {
  * バックグラウンドから復帰したときは、呼び出し時点のnowで正しく追いつく。
  */
 export function tick(state: QuizState, now: number): QuizState {
+  // セッション全体の制限時間を過ぎたら、その場で終了する。
+  if (
+    state.sessionDeadline !== null &&
+    now >= state.sessionDeadline &&
+    state.phase !== "finished"
+  ) {
+    return { ...state, phase: "finished", revealDeadline: null };
+  }
+
   let next = state;
   // 表示時間を大幅に超過していた場合も、1問ずつ確実に処理する。
   for (let guard = 0; guard < 1000; guard += 1) {
@@ -372,6 +595,9 @@ export function tick(state: QuizState, now: number): QuizState {
     }
     if (next === before) {
       break;
+    }
+    if (next.sessionDeadline !== null && now >= next.sessionDeadline) {
+      return { ...next, phase: "finished", revealDeadline: null };
     }
   }
   return next;

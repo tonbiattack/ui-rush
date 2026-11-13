@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { EXTRA_DEMOS } from "@/components/ui-demos-extra";
 
 const cx = (...values: Array<string | false | null | undefined>) =>
   values.filter(Boolean).join(" ");
@@ -890,8 +891,13 @@ const DEMOS: Record<string, () => React.JSX.Element> = {
   pagination: PaginationDemo,
 };
 
+/** デモが用意されているか（テストと図鑑の出し分けに使う）。 */
+export function hasDemo(demoType: string): boolean {
+  return Boolean(DEMOS[demoType] ?? EXTRA_DEMOS[demoType]);
+}
+
 export function UiDemo({ demoType }: { demoType: string }) {
-  const Demo = DEMOS[demoType];
+  const Demo = DEMOS[demoType] ?? EXTRA_DEMOS[demoType];
   if (!Demo) {
     return (
       <p className="rounded-md border border-dashed border-rule-strong p-4 text-sm text-muted">
