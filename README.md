@@ -3,6 +3,8 @@
 UIコンポーネントの名称・読み・説明を4択で確認するWebクイズです。
 操作できるデモを見て「このUIは何という？」に答えます。1問の制限時間は3〜8秒。
 
+公開URL: <https://tonbiattack.github.io/ui-rush/>
+
 - 仕様書: [`docs/spec.md`](docs/spec.md)
 - デザイン方針: [`docs/design.md`](docs/design.md)
 
@@ -38,6 +40,20 @@ npm run dev
 ```
 
 http://localhost:3000 を開きます。
+
+## 公開（GitHub Pages）
+
+`main` へ push すると `.github/workflows/deploy-pages.yml` が静的サイトをビルドし、GitHub Pages へ配信します。
+
+ローカルで同じ成果物を確認する場合:
+
+```bash
+NEXT_PUBLIC_BASE_PATH=/ui-rush npm run build   # Windows PowerShell: $env:NEXT_PUBLIC_BASE_PATH="/ui-rush"
+npx serve out
+```
+
+プロジェクトページ（`/<repo>/`）で配信されるため、`NEXT_PUBLIC_BASE_PATH` にリポジトリ名を渡します。
+独自ドメインやユーザーページで配信する場合は空文字のままで構いません。
 
 ### スクリプト
 
