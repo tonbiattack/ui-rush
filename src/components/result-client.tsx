@@ -136,7 +136,7 @@ export function ResultClient() {
 
         {weak.length === 0 ? (
           <p className="border-b border-rule py-4 text-sm text-correct">
-            全問正解です。この用語群はもう言えます。
+            全問正解です。
           </p>
         ) : (
           <ul>

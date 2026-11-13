@@ -6,7 +6,6 @@ export function Masthead({ right }: { right?: React.ReactNode }) {
     <header className="mb-6 flex items-baseline justify-between gap-3 border-b border-ink pb-2">
       <Link href="/" className="focus-ring flex items-baseline gap-2">
         <span className="instrument text-xl font-semibold tracking-tight">UI RUSH</span>
-        <span className="text-[11px] text-muted">UI用語の聴き取りドリル</span>
       </Link>
       {right ? <div className="text-[11px] text-muted">{right}</div> : null}
     </header>

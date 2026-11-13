@@ -19,7 +19,7 @@ const sans = Zen_Kaku_Gothic_New({
 export const metadata: Metadata = {
   title: "UI Rush | UI用語を数秒で覚えるクイズ",
   description:
-    "UIコンポーネントの見た目・動き・名称を短時間で覚えるWebクイズ。操作できるデモを見て、4択で答える。",
+    "UIコンポーネントの名称・読み・説明を4択で答えるクイズ。操作できるデモを見て回答する。",
 };
 
 export const viewport: Viewport = {

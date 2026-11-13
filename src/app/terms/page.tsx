@@ -32,8 +32,7 @@ export default function TermsPage() {
           用語図鑑
         </h1>
         <p className="mt-2 max-w-[38rem] text-sm leading-relaxed text-ink-soft">
-          名前・読み・使い方の指示例を、分類ごとに並べました。
-          デモを開けばその場で操作できます。時間制限はありません。
+          20語の名前・読み・説明・AIへの指示例を分類ごとに並べています。各項目のデモは開いて操作できます。時間制限はありません。
         </p>
         <nav aria-label="分類" className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
           {grouped.map((group) => (
@@ -77,7 +76,7 @@ export default function TermsPage() {
           href="/quiz?count=10&time=5&mode=normal&reveal=manual"
           className="focus-ring bg-ink px-5 py-3 text-sm font-bold text-paper transition-colors hover:bg-ink-soft"
         >
-          覚えたらクイズで試す
+          クイズを始める
         </Link>
         <Link
           href="/"

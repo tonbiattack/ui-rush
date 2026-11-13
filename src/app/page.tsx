@@ -151,16 +151,14 @@ export default function HomePage() {
       <Masthead right={<span className="instrument">{QUESTIONS.length}語</span>} />
 
       <section className="border-b border-ink pb-6">
-        <h1 className="text-[clamp(1.45rem,4.6vw,2.9rem)] font-bold leading-[1.34] tracking-tight sm:leading-[1.28]">
-          UIの名前を、
-          <br aria-hidden="true" />
-          見た瞬間に言えるように。
+        <h1 className="text-[clamp(1.45rem,4.6vw,2.4rem)] font-bold leading-[1.3] tracking-tight">
+          UI用語クイズ
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-ink-soft">
-          操作できる実物のデモが1問ずつ出ます。名前を4択で当てるだけ。
+          操作できるデモが1問ずつ出ます。4択で名前を答えてください。
         </p>
         <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-          正解と一緒に「AIへの指示例」が出るので、そのまま音声で使えます。
+          正誤表示のあとに、その用語を使ったAIへの指示例が出ます。
         </p>
         <dl className="mt-5 grid max-w-md grid-cols-3 divide-x divide-rule border-y border-rule">
           {[

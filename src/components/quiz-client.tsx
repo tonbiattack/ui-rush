@@ -550,18 +550,6 @@ export function QuizClient({
               </span>
             </button>
           </div>
-
-          <p
-            className={`mt-2 border-l-2 pl-2 text-[11px] ${
-              answeredCorrectly
-                ? "border-correct text-correct"
-                : "border-wrong text-wrong"
-            }`}
-          >
-            {answeredCorrectly
-              ? "この調子で、名称を声に出して確認しましょう。"
-              : "正解の名称を声に出してから次へ進むと定着します。"}
-          </p>
         </section>
       )}
 

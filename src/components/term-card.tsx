@@ -25,7 +25,7 @@ export function TermCard({ question }: { question: Question }) {
         >
           {open ? "デモを閉じる" : "デモを開く"}
         </button>
-        {!open && <span className="text-[11px] text-muted">実際に操作できます</span>}
+        {!open && <span className="text-[11px] text-muted">デモを開いて操作できます</span>}
       </div>
 
       <div id={panelId} hidden={!open} className="mt-2 space-y-2">
