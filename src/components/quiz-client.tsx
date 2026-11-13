@@ -7,9 +7,14 @@ import { UiDemo } from "@/components/ui-demos";
 import { getHistorySnapshot, useHistory } from "@/lib/use-history";
 import { weakQuestionIds } from "@/lib/history";
 import { saveResult } from "@/lib/result-storage";
+import {
+  DistinctionNote,
+  InstructionExample,
+} from "@/components/term-detail";
 import { getQuestion } from "@/lib/questions";
 import {
   advance,
+  createConfusableSession,
   createQuizSession,
   currentQuestion,
   remainingMs,
@@ -85,11 +90,20 @@ export function QuizClient({
   const { addAnswers } = useHistory();
 
   // セッションと開始時刻は初回レンダリング時に一度だけ確定する。
-  const [session] = useState<QuizSession | null>(() =>
-    mode === "review"
-      ? createReviewSession(questionCount, timeLimitSec, revealMode, reviewIds)
-      : createQuizSession({ questionCount, timeLimitSec, mode, revealMode }),
-  );
+  const [session] = useState<QuizSession | null>(() => {
+    if (mode === "review") {
+      return createReviewSession(questionCount, timeLimitSec, revealMode, reviewIds);
+    }
+    if (mode === "confusable") {
+      // 出題数は「ペア数×2」で受け取る。
+      return createConfusableSession({
+        timeLimitSec,
+        revealMode,
+        pairCount: Math.max(1, Math.floor(questionCount / 2)),
+      });
+    }
+    return createQuizSession({ questionCount, timeLimitSec, mode, revealMode });
+  });
   const [state, setState] = useState<QuizState | null>(() =>
     session ? startQuiz(session, performance.now()) : null,
   );
@@ -309,7 +323,11 @@ export function QuizClient({
               {state.index + 1} / {session.questions.length}
             </span>
             <span className="rounded-full bg-brand-100 px-2 py-0.5 font-semibold text-brand-700">
-              {session.mode === "review" ? "苦手復習" : "通常"}
+              {session.mode === "review"
+                ? "苦手復習"
+                : session.mode === "confusable"
+                  ? "呼び分け特訓"
+                  : "通常"}
             </span>
             <span className="hidden sm:inline">制限 {session.timeLimitSec}秒</span>
           </div>
@@ -355,7 +373,9 @@ export function QuizClient({
                 <span aria-hidden="true">⏸</span>
                 {session.revealMode === "auto"
                   ? "タイマー停止中 — まもなく自動で次へ進みます"
-                  : "タイマー停止中 — 解説を読んでから次へ進めます"}
+                  : session.mode === "confusable"
+                    ? "タイマー停止中 — 2つの違いを確認してから次へ進めます"
+                    : "タイマー停止中 — 解説を読んでから次へ進めます"}
               </p>
             )}
           </div>
@@ -367,7 +387,9 @@ export function QuizClient({
         className="flex min-h-60 flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:min-h-72 sm:p-4"
       >
         <p className="mb-2 text-xs font-semibold text-slate-500">
-          このUIは何という？（操作して確かめられます）
+          {session.mode === "confusable"
+            ? "このUIはどっち？（操作して確かめられます）"
+            : "このUIは何という？（操作して確かめられます）"}
         </p>
         <div className="flex flex-1 flex-col justify-center">
           <DemoPanel key={question.questionId} demoType={questionData.demoType} />
@@ -377,22 +399,36 @@ export function QuizClient({
           <div
             role="status"
             aria-live="assertive"
-            className={`mt-2 rounded-xl border px-3 py-2 ${
+            className={`mt-2 space-y-2 rounded-xl border px-3 py-2 ${
               answeredCorrectly ? "border-emerald-300 bg-emerald-50" : "border-red-300 bg-red-50"
             }`}
           >
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-bold">
-              <span aria-hidden="true">{answeredCorrectly ? "✓" : "✗"}</span>
-              <span>{answeredCorrectly ? "正解" : timedOut ? "時間切れ" : "不正解"}</span>
-              <span className="font-semibold text-slate-700">
-                正解は「{questionData.nameJa}」（{questionData.reading}）
-              </span>
-            </p>
-            <p className="mt-0.5 text-xs leading-snug text-slate-600">
-              {questionData.description}
-            </p>
+            <div>
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-bold">
+                <span aria-hidden="true">{answeredCorrectly ? "✓" : "✗"}</span>
+                <span>{answeredCorrectly ? "正解" : timedOut ? "時間切れ" : "不正解"}</span>
+                <span className="font-semibold text-slate-700">
+                  正解は「{questionData.nameJa}」（{questionData.reading}）
+                </span>
+              </p>
+              <p className="mt-0.5 text-xs leading-snug text-slate-600">
+                {questionData.description}
+              </p>
+            </div>
+
+            <InstructionExample question={questionData} />
+
+            <DistinctionNote
+              question={questionData}
+              compareWith={
+                session.mode === "confusable" && selected && selected !== question.questionId
+                  ? getQuestion(selected)
+                  : undefined
+              }
+            />
+
             {autoRevealRemainingMs !== null && (
-              <p className="mt-1 text-[11px] font-medium text-slate-500">
+              <p className="text-[11px] font-medium text-slate-500">
                 あと{(autoRevealRemainingMs / 1000).toFixed(1)}秒で次へ進みます
               </p>
             )}
