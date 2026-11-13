@@ -12,12 +12,18 @@ export const DEFAULT_TIME_LIMIT_SEC = 5 as const;
 export const QUESTION_COUNT_OPTIONS = [10, 20] as const;
 export const DEFAULT_QUESTION_COUNT = 10 as const;
 export const CHOICE_COUNT = 4;
-/** 正答と短い説明を見せる時間。 */
-export const REVEAL_MS = 800;
+/** 「自動で次へ」を選んだときに、正誤と解説を見せる時間。 */
+export const AUTO_REVEAL_MS = 5000;
 
 export type TimeLimitSec = (typeof TIME_LIMIT_OPTIONS)[number];
 export type QuestionCount = (typeof QUESTION_COUNT_OPTIONS)[number];
 export type QuizMode = "normal" | "review";
+/**
+ * 正誤と解説を見せたあとの進め方。
+ * - manual: タイマーを止めて待機し、ユーザーが「次へ」を押すまで進まない（既定）
+ * - auto: 一定時間（AUTO_REVEAL_MS）表示したら自動で次へ進む
+ */
+export type RevealMode = "manual" | "auto";
 
 export interface QuizQuestion {
   questionId: string;
@@ -28,6 +34,7 @@ export interface QuizQuestion {
 export interface QuizSession {
   mode: QuizMode;
   timeLimitSec: TimeLimitSec;
+  revealMode: RevealMode;
   questions: QuizQuestion[];
 }
 
@@ -51,7 +58,7 @@ export interface QuizState {
   phase: QuizPhase;
   /** 現在の問題の絶対的な締切時刻（performance.now()基準）。 */
   deadline: number;
-  /** 正答表示を終えて次へ進む時刻。 */
+  /** 正誤表示を自動で終える時刻。手動送りのときは null（ユーザーの操作まで待つ）。 */
   revealDeadline: number | null;
 }
 
@@ -76,6 +83,10 @@ export function isQuestionCount(value: unknown): value is QuestionCount {
 
 export function isQuizMode(value: unknown): value is QuizMode {
   return value === "normal" || value === "review";
+}
+
+export function isRevealMode(value: unknown): value is RevealMode {
+  return value === "manual" || value === "auto";
 }
 
 function buildChoices(question: Question, rng: Rng): string[] {
@@ -128,6 +139,8 @@ export interface CreateSessionOptions {
   questionCount: number;
   timeLimitSec: TimeLimitSec;
   mode?: QuizMode;
+  /** 正誤表示後の進め方。既定は手動（タイマー停止）。 */
+  revealMode?: RevealMode;
   /** 復習モードで出題対象にする問題ID。省略時は全問題。 */
   questionIds?: readonly string[];
   rng?: Rng;
@@ -141,6 +154,7 @@ export function createQuizSession({
   questionCount,
   timeLimitSec,
   mode = "normal",
+  revealMode = "manual",
   questionIds,
   rng = Math.random,
 }: CreateSessionOptions): QuizSession {
@@ -158,7 +172,7 @@ export function createQuizSession({
     return { questionId: id, choices: buildChoices(question, rng) };
   });
 
-  return { mode, timeLimitSec, questions };
+  return { mode, timeLimitSec, revealMode, questions };
 }
 
 export function timeLimitMs(seconds: TimeLimitSec): number {
@@ -203,12 +217,13 @@ export function remainingMs(state: QuizState, now: number): number {
 }
 
 function reveal(state: QuizState, answers: AnswerRecord[], now: number): QuizState {
-  // 最終問題でも正答と説明を一度見せてから終了する。
+  // 正誤と解説の表示中はタイマーを止める。自動送りのときだけ終了時刻を決める。
   return {
     ...state,
     answers,
     phase: "revealed",
-    revealDeadline: now + REVEAL_MS,
+    revealDeadline:
+      state.session.revealMode === "auto" ? now + AUTO_REVEAL_MS : null,
   };
 }
 
@@ -264,6 +279,17 @@ export function advanceIfReady(state: QuizState, now: number): QuizState {
   if (now < state.revealDeadline) {
     return state;
   }
+  return advance(state, state.revealDeadline);
+}
+
+/**
+ * 手動送り。正誤と解説を読み終えたら呼ぶ。
+ * 表示中のタイマーは止まっているので、次問はここから満額の制限時間で始める。
+ */
+export function advance(state: QuizState, now: number): QuizState {
+  if (state.phase !== "revealed") {
+    return state;
+  }
 
   const nextIndex = state.index + 1;
   if (nextIndex >= state.session.questions.length) {
@@ -274,8 +300,8 @@ export function advanceIfReady(state: QuizState, now: number): QuizState {
     ...state,
     index: nextIndex,
     phase: "answering",
-    // 次の問題の制限時間は「表示を始めた時刻」から測り直す。
-    deadline: state.revealDeadline + timeLimitMs(state.session.timeLimitSec),
+    // 次の問題の制限時間は「次へ進んだ時刻」から測り直す。
+    deadline: now + timeLimitMs(state.session.timeLimitSec),
     revealDeadline: null,
   };
 }
@@ -302,25 +328,32 @@ export function tick(state: QuizState, now: number): QuizState {
   return next;
 }
 
-export function summarize(state: QuizState): QuizResult {
-  const answers = state.answers;
+/**
+ * 回答の一覧から成績を集計する。進行状態に依存しない純粋関数。
+ * 正答率は出題数に対する正解の割合（時間切れ・未回答も分母に含む）。
+ */
+export function summarizeAnswers(
+  answers: readonly AnswerRecord[],
+  total: number,
+): QuizResult {
   const correct = answers.filter((answer) => answer.outcome === "correct").length;
   const incorrect = answers.filter((answer) => answer.outcome === "incorrect").length;
   const timeout = answers.filter((answer) => answer.outcome === "timeout").length;
-  const answered = correct + incorrect;
 
   return {
-    total: state.session.questions.length,
+    total,
     correct,
     incorrect,
     timeout,
-    answered,
-    accuracy: state.session.questions.length === 0
-      ? 0
-      : Math.round((correct / state.session.questions.length) * 100),
+    answered: correct + incorrect,
+    accuracy: total === 0 ? 0 : Math.round((correct / total) * 100),
     wrongQuestionIds: answers
       .filter((answer) => answer.outcome !== "correct")
       .map((answer) => answer.questionId),
-    answers,
+    answers: [...answers],
   };
+}
+
+export function summarize(state: QuizState): QuizResult {
+  return summarizeAnswers(state.answers, state.session.questions.length);
 }

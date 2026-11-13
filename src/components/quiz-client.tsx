@@ -9,6 +9,7 @@ import { weakQuestionIds } from "@/lib/history";
 import { saveResult } from "@/lib/result-storage";
 import { getQuestion } from "@/lib/questions";
 import {
+  advance,
   createQuizSession,
   currentQuestion,
   remainingMs,
@@ -20,6 +21,7 @@ import {
   type QuizMode,
   type QuizSession,
   type QuizState,
+  type RevealMode,
   type TimeLimitSec,
 } from "@/lib/quiz";
 
@@ -44,6 +46,8 @@ export interface QuizClientProps {
   questionCount: QuestionCount;
   timeLimitSec: TimeLimitSec;
   mode: QuizMode;
+  /** 正誤表示後の進め方（manual: 待機 / auto: 5秒で自動）。 */
+  revealMode: RevealMode;
   /** 復習モードで出題する問題ID（結果画面からの復習で使用）。未指定なら履歴の苦手問題。 */
   reviewIds?: string[];
 }
@@ -52,6 +56,7 @@ export interface QuizClientProps {
 function createReviewSession(
   questionCount: QuestionCount,
   timeLimitSec: TimeLimitSec,
+  revealMode: RevealMode,
   reviewIds?: string[],
 ): QuizSession | null {
   const ids = reviewIds?.length ? reviewIds : weakQuestionIds(getHistorySnapshot());
@@ -63,20 +68,27 @@ function createReviewSession(
     questionCount: Math.min(questionCount, knownIds.length),
     timeLimitSec,
     mode: "review",
+    revealMode,
     questionIds: knownIds,
   });
 }
 
 /** クイズ本体。クライアントでのみ描画する（タイマー基準をブラウザの実時間に固定するため）。 */
-export function QuizClient({ questionCount, timeLimitSec, mode, reviewIds }: QuizClientProps) {
+export function QuizClient({
+  questionCount,
+  timeLimitSec,
+  mode,
+  revealMode,
+  reviewIds,
+}: QuizClientProps) {
   const router = useRouter();
   const { addAnswers } = useHistory();
 
   // セッションと開始時刻は初回レンダリング時に一度だけ確定する。
   const [session] = useState<QuizSession | null>(() =>
     mode === "review"
-      ? createReviewSession(questionCount, timeLimitSec, reviewIds)
-      : createQuizSession({ questionCount, timeLimitSec, mode }),
+      ? createReviewSession(questionCount, timeLimitSec, revealMode, reviewIds)
+      : createQuizSession({ questionCount, timeLimitSec, mode, revealMode }),
   );
   const [state, setState] = useState<QuizState | null>(() =>
     session ? startQuiz(session, performance.now()) : null,
@@ -143,6 +155,7 @@ export function QuizClient({ questionCount, timeLimitSec, mode, reviewIds }: Qui
     saveResult({
       mode: session.mode,
       timeLimitSec: session.timeLimitSec,
+      revealMode: session.revealMode,
       questionCount: session.questions.length,
       answers: state.answers,
       questionIds: session.questions.map((question) => question.questionId),
@@ -170,7 +183,25 @@ export function QuizClient({ questionCount, timeLimitSec, mode, reviewIds }: Qui
     [applyState],
   );
 
-  // PCでは数字キー1〜4で回答する。
+  // 解説を読み終えたら次へ。タイマーはここから計り直す。
+  const handleAdvance = useCallback(() => {
+    const previous = stateRef.current;
+    if (!previous || previous.phase !== "revealed") {
+      return;
+    }
+    const next = advance(previous, performance.now());
+    if (next !== previous) {
+      applyState(next);
+      setNow(performance.now());
+    }
+  }, [applyState]);
+
+  const showingExplanation = state?.phase === "revealed";
+  const isLastQuestion = Boolean(
+    state && state.index >= state.session.questions.length - 1,
+  );
+
+  // PCでは数字キー1〜4で回答、Enter / Space で次へ。
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) {
@@ -184,9 +215,29 @@ export function QuizClient({ questionCount, timeLimitSec, mode, reviewIds }: Qui
       ) {
         return;
       }
-      const index = CHOICE_KEYS.indexOf(event.key);
+      // ボタンやリンク上でのEnter/Spaceはブラウザ標準の押下に任せる（二重送りを防ぐ）。
+      // ただし無効化された選択肢（回答後にdisabledになる）では標準動作が無いので自前で進める。
+      const interactive = target?.closest?.(
+        'button, a, [role="button"], [role="menuitem"], [role="switch"], [role="tab"]',
+      ) as HTMLElement | null;
+      const nativeHandlesIt = Boolean(interactive) && !interactive?.hasAttribute("disabled");
+      if (nativeHandlesIt && (event.key === "Enter" || event.key === " ")) {
+        return;
+      }
       const current = stateRef.current;
-      if (index < 0 || !current || current.phase !== "answering") {
+      if (!current) {
+        return;
+      }
+      if (
+        current.phase === "revealed" &&
+        (event.key === "Enter" || event.key === " " || event.key === "ArrowRight")
+      ) {
+        event.preventDefault();
+        handleAdvance();
+        return;
+      }
+      const index = CHOICE_KEYS.indexOf(event.key);
+      if (index < 0 || current.phase !== "answering") {
         return;
       }
       const choiceId = current.session.questions[current.index]?.choices[index];
@@ -198,7 +249,7 @@ export function QuizClient({ questionCount, timeLimitSec, mode, reviewIds }: Qui
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleAnswer]);
+  }, [handleAnswer, handleAdvance]);
 
   if (!session) {
     return (
@@ -243,6 +294,10 @@ export function QuizClient({ questionCount, timeLimitSec, mode, reviewIds }: Qui
   const answeredCorrectly = answer?.outcome === "correct";
   const timedOut = answer?.outcome === "timeout";
   const selected = answer?.selectedChoiceId ?? null;
+  const autoRevealRemainingMs =
+    showingExplanation && state.revealDeadline !== null
+      ? Math.max(0, state.revealDeadline - now)
+      : null;
 
   return (
     <main className="flex flex-1 flex-col gap-3">
@@ -270,23 +325,39 @@ export function QuizClient({ questionCount, timeLimitSec, mode, reviewIds }: Qui
           <p
             role="timer"
             data-testid="remaining-seconds"
-            className="w-20 text-right text-3xl font-bold tabular-nums"
+            aria-label={`残り時間 ${(liveRemaining / 1000).toFixed(1)}秒`}
+            className={`w-20 text-right text-3xl font-bold tabular-nums ${
+              showingExplanation ? "text-slate-500" : ""
+            }`}
           >
             {(liveRemaining / 1000).toFixed(1)}
             <span className="ml-0.5 text-sm font-semibold text-slate-500">秒</span>
           </p>
-          <div
-            role="progressbar"
-            aria-label="残り時間"
-            aria-valuemin={0}
-            aria-valuemax={session.timeLimitSec}
-            aria-valuenow={Number((liveRemaining / 1000).toFixed(1))}
-            className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-200"
-          >
+          <div className="flex flex-1 flex-col gap-1">
             <div
-              className={`h-full rounded-full ${timerTone(ratio)}`}
-              style={{ width: `${ratio * 100}%` }}
-            />
+              role="progressbar"
+              aria-label="残り時間"
+              aria-valuemin={0}
+              aria-valuemax={session.timeLimitSec}
+              aria-valuenow={Number((liveRemaining / 1000).toFixed(1))}
+              className="h-2.5 overflow-hidden rounded-full bg-slate-200"
+            >
+              <div
+                className={`h-full rounded-full ${timerTone(ratio)}`}
+                style={{ width: `${ratio * 100}%` }}
+              />
+            </div>
+            {showingExplanation && (
+              <p
+                data-testid="timer-status"
+                className="flex items-center gap-1 text-[11px] font-semibold text-slate-500"
+              >
+                <span aria-hidden="true">⏸</span>
+                {session.revealMode === "auto"
+                  ? "タイマー停止中 — まもなく自動で次へ進みます"
+                  : "タイマー停止中 — 解説を読んでから次へ進めます"}
+              </p>
+            )}
           </div>
         </div>
       </header>
@@ -320,6 +391,11 @@ export function QuizClient({ questionCount, timeLimitSec, mode, reviewIds }: Qui
             <p className="mt-0.5 text-xs leading-snug text-slate-600">
               {questionData.description}
             </p>
+            {autoRevealRemainingMs !== null && (
+              <p className="mt-1 text-[11px] font-medium text-slate-500">
+                あと{(autoRevealRemainingMs / 1000).toFixed(1)}秒で次へ進みます
+              </p>
+            )}
           </div>
         )}
       </section>
@@ -377,12 +453,32 @@ export function QuizClient({ questionCount, timeLimitSec, mode, reviewIds }: Qui
       </section>
 
       <p className="text-center text-[11px] text-slate-500">
-        PCでは数字キー 1〜4 でも回答できます
+        {showingExplanation
+          ? "Enter / Space でも次へ進めます"
+          : "PCでは数字キー 1〜4 でも回答できます"}
       </p>
+
+      {showingExplanation && (
+        <div className="sticky bottom-2 z-10 mt-auto">
+          <button
+            type="button"
+            onClick={handleAdvance}
+            data-testid="advance-button"
+            className="focus-ring w-full rounded-2xl bg-brand-600 px-6 py-4 text-base font-bold text-white shadow-lg transition-colors hover:bg-brand-700 active:bg-brand-700"
+          >
+            {isLastQuestion ? "結果を見る" : "次の問題へ"}
+            <span className="ml-2 text-xs font-semibold opacity-90">
+              {isLastQuestion ? "ここまでの成績を表示" : "ここから制限時間が始まります"}
+            </span>
+          </button>
+        </div>
+      )}
       <p className="sr-only" aria-live="polite">
         {answering
           ? `第${state.index + 1}問です。制限時間は${session.timeLimitSec}秒です。`
-          : ""}
+          : showingExplanation
+            ? "タイマーは停止しています。解説を読んで次へ進んでください。"
+            : ""}
       </p>
     </main>
   );

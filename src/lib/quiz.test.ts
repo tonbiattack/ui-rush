@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  AUTO_REVEAL_MS,
   CHOICE_COUNT,
   QUESTION_COUNT_OPTIONS,
-  REVEAL_MS,
   TIME_LIMIT_OPTIONS,
+  advance,
   advanceIfReady,
   createQuizSession,
   currentQuestion,
@@ -26,6 +27,7 @@ const fixedRng = (values: number[]) => {
 const session = (overrides: Partial<QuizSession> = {}): QuizSession => ({
   mode: "normal",
   timeLimitSec: 5,
+  revealMode: "manual",
   questions: [
     { questionId: QUESTIONS[0].id, choices: [QUESTIONS[0].id, "modal", "tabs", "toast"] },
     { questionId: QUESTIONS[1].id, choices: ["accordion", QUESTIONS[1].id, "tabs", "toast"] },
@@ -153,6 +155,14 @@ describe("createQuizSession", () => {
     });
     expect(quiz.questions.map((question) => question.questionId)).toEqual([QUESTIONS[0].id]);
   });
+
+  it("正誤表示後の進め方は既定で手動（タイマー停止）", () => {
+    const quiz = createQuizSession({ questionCount: 10, timeLimitSec: 5 });
+    expect(quiz.revealMode).toBe("manual");
+    expect(
+      createQuizSession({ questionCount: 10, timeLimitSec: 5, revealMode: "auto" }).revealMode,
+    ).toBe("auto");
+  });
 });
 
 describe("タイマーと状態遷移", () => {
@@ -173,7 +183,7 @@ describe("タイマーと状態遷移", () => {
     expect(state.answers[0].outcome).toBe("timeout");
   });
 
-  it("正解を選ぶと約0.8秒表示して自動で次へ進む", () => {
+  it("回答後はタイマーが止まり、次へ押すまで解説を表示し続ける", () => {
     const now = 0;
     let state = startQuiz(session(), now);
     const question = currentQuestion(state)!;
@@ -181,14 +191,59 @@ describe("タイマーと状態遷移", () => {
 
     expect(state.phase).toBe("revealed");
     expect(state.answers[0]).toMatchObject({ outcome: "correct", remainingMs: 4000 });
+    // 手動送りでは自動進行の締切を持たない。
+    expect(state.revealDeadline).toBeNull();
 
-    state = advanceIfReady(state, now + 1000 + REVEAL_MS - 1);
+    // 何秒経っても（バックグラウンド復帰でも）勝手に進まず、表示も止まったまま。
+    state = tick(state, now + 1000 + 60_000);
     expect(state.phase).toBe("revealed");
+    expect(state.index).toBe(0);
+    expect(state.answers[0].remainingMs).toBe(4000);
+    expect(state.answers).toHaveLength(1);
+  });
 
-    state = advanceIfReady(state, now + 1000 + REVEAL_MS);
+  it("次へ押すと次の問題が満額の制限時間で始まる", () => {
+    const now = 0;
+    let state = startQuiz(session(), now);
+    const question = currentQuestion(state)!;
+    state = submitAnswer(state, question.questionId, now + 1000);
+    // 解説を30秒読んでから次へ。
+    state = advance(state, now + 31_000);
+
     expect(state.phase).toBe("answering");
     expect(state.index).toBe(1);
-    expect(state.deadline).toBe(now + 1000 + REVEAL_MS + 5000);
+    expect(state.deadline).toBe(now + 31_000 + 5000);
+    expect(remainingMs(state, now + 31_000)).toBe(5000);
+  });
+
+  it("時間切れでもタイマーを止めて待機する", () => {
+    const now = 0;
+    let state = startQuiz(session(), now);
+    state = tick(state, now + 5000);
+
+    expect(state.phase).toBe("revealed");
+    expect(state.answers[0].outcome).toBe("timeout");
+    expect(state.revealDeadline).toBeNull();
+
+    state = tick(state, now + 60_000);
+    expect(state.index).toBe(0);
+    expect(state.answers).toHaveLength(1);
+  });
+
+  it("自動送りを選ぶと一定時間後に進む", () => {
+    const now = 0;
+    let state = startQuiz(session({ revealMode: "auto" }), now);
+    const question = currentQuestion(state)!;
+    state = submitAnswer(state, question.questionId, now + 1000);
+    expect(state.revealDeadline).toBe(now + 1000 + AUTO_REVEAL_MS);
+
+    state = advanceIfReady(state, now + 1000 + AUTO_REVEAL_MS - 1);
+    expect(state.phase).toBe("revealed");
+
+    state = advanceIfReady(state, now + 1000 + AUTO_REVEAL_MS);
+    expect(state.phase).toBe("answering");
+    expect(state.index).toBe(1);
+    expect(state.deadline).toBe(now + 1000 + AUTO_REVEAL_MS + 5000);
   });
 
   it("不正解を選ぶと不正解として記録される", () => {
@@ -237,14 +292,23 @@ describe("タイマーと状態遷移", () => {
     expect(state.answers).toHaveLength(1);
   });
 
-  it("バックグラウンド復帰時は実時間で追いつく", () => {
+  it("バックグラウンド復帰時は実時間で追いつく（自動送り）", () => {
     const now = 0;
-    let state = startQuiz(session(), now);
+    let state = startQuiz(session({ revealMode: "auto" }), now);
     // 30秒後に復帰。全問の時間切れと表示時間を経過した状態になる。
     state = tick(state, now + 30_000);
     expect(state.phase).toBe("finished");
     expect(state.answers).toHaveLength(3);
     expect(state.answers.every((answer) => answer.outcome === "timeout")).toBe(true);
+  });
+
+  it("バックグラウンド復帰時も手動送りなら1問で止まる", () => {
+    const now = 0;
+    let state = startQuiz(session(), now);
+    state = tick(state, now + 30_000);
+    expect(state.phase).toBe("revealed");
+    expect(state.index).toBe(0);
+    expect(state.answers).toHaveLength(1);
   });
 
   it("最終問題も正答表示を挟んでから終了する", () => {
@@ -253,7 +317,10 @@ describe("タイマーと状態遷移", () => {
     const question = currentQuestion(state)!;
     state = submitAnswer(state, question.questionId, now + 1000);
     expect(state.phase).toBe("revealed");
-    state = advanceIfReady(state, now + 1000 + REVEAL_MS);
+    // 待機中は終了しない。
+    state = tick(state, now + 60_000);
+    expect(state.phase).toBe("revealed");
+    state = advance(state, now + 60_000);
     expect(state.phase).toBe("finished");
   });
 
@@ -275,11 +342,11 @@ describe("summarize", () => {
     const now = 0;
     let state = startQuiz(session(), now);
     state = submitAnswer(state, QUESTIONS[0].id, now + 1000); // correct
-    state = advanceIfReady(state, now + 1800);
+    state = advance(state, now + 1800);
     state = submitAnswer(state, "tabs", now + 2000); // incorrect
-    state = advanceIfReady(state, now + 3600);
+    state = advance(state, now + 3600);
     state = tick(state, now + 20_000); // timeout
-    state = tick(state, now + 40_000);
+    state = advance(state, now + 40_000);
 
     const result = summarize(state);
     expect(result.total).toBe(3);

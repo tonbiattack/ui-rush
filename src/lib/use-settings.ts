@@ -6,7 +6,9 @@ import {
   DEFAULT_TIME_LIMIT_SEC,
   QUESTION_COUNT_OPTIONS,
   TIME_LIMIT_OPTIONS,
+  isRevealMode,
   type QuestionCount,
+  type RevealMode,
   type TimeLimitSec,
 } from "@/lib/quiz";
 
@@ -16,11 +18,14 @@ const SETTINGS_EVENT = "ui-rush:settings";
 export interface Settings {
   time: TimeLimitSec;
   count: QuestionCount;
+  /** 正誤表示後の進め方。既定は manual（タイマー停止して待機）。 */
+  reveal: RevealMode;
 }
 
 const DEFAULT_SETTINGS: Settings = {
   time: DEFAULT_TIME_LIMIT_SEC,
   count: DEFAULT_QUESTION_COUNT,
+  reveal: "manual",
 };
 
 let cachedRaw: string | null | undefined;
@@ -41,7 +46,11 @@ export function getSettingsSnapshot(): Settings {
     cachedValue = DEFAULT_SETTINGS;
     if (raw) {
       try {
-        const parsed = JSON.parse(raw) as { time?: unknown; count?: unknown };
+        const parsed = JSON.parse(raw) as {
+          time?: unknown;
+          count?: unknown;
+          reveal?: unknown;
+        };
         cachedValue = {
           time: TIME_LIMIT_OPTIONS.includes(parsed.time as TimeLimitSec)
             ? (parsed.time as TimeLimitSec)
@@ -49,6 +58,7 @@ export function getSettingsSnapshot(): Settings {
           count: QUESTION_COUNT_OPTIONS.includes(parsed.count as QuestionCount)
             ? (parsed.count as QuestionCount)
             : DEFAULT_SETTINGS.count,
+          reveal: isRevealMode(parsed.reveal) ? parsed.reveal : DEFAULT_SETTINGS.reveal,
         };
       } catch {
         cachedValue = DEFAULT_SETTINGS;

@@ -2,9 +2,11 @@ import { QUESTIONS_BY_ID } from "./questions";
 import {
   isQuestionCount,
   isQuizMode,
+  isRevealMode,
   isTimeLimitSec,
   type AnswerRecord,
   type QuizMode,
+  type RevealMode,
   type TimeLimitSec,
 } from "./quiz";
 
@@ -15,6 +17,8 @@ export interface StoredResult {
   version: typeof RESULT_VERSION;
   mode: QuizMode;
   timeLimitSec: TimeLimitSec;
+  /** 正誤表示後の進め方。再挑戦時も同じ設定を引き継ぐ。 */
+  revealMode: RevealMode;
   questionCount: number;
   answers: AnswerRecord[];
   /** 出題順のスナップショット。結果画面で用語を表示するために保持する。 */
@@ -74,6 +78,8 @@ export function parseStoredResult(raw: string | null): StoredResult | null {
     version: RESULT_VERSION,
     mode: candidate.mode,
     timeLimitSec: candidate.timeLimitSec,
+    // 旧バージョンの保存データには無いので、既定の手動送りとして扱う。
+    revealMode: isRevealMode(candidate.revealMode) ? candidate.revealMode : "manual",
     questionCount: candidate.questionCount,
     answers,
     questionIds,

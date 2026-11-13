@@ -6,6 +6,7 @@ import {
   DEFAULT_TIME_LIMIT_SEC,
   isQuestionCount,
   isQuizMode,
+  isRevealMode,
   isTimeLimitSec,
 } from "@/lib/quiz";
 
@@ -35,6 +36,9 @@ export default async function QuizPage({
   const rawMode = first(params.mode);
   const mode = isQuizMode(rawMode) ? rawMode : "normal";
 
+  const rawReveal = first(params.reveal);
+  const revealMode = isRevealMode(rawReveal) ? rawReveal : "manual";
+
   // 結果画面からは、そのセッションで間違えた問題IDをカンマ区切りで受け取る。
   const rawIds = first(params.ids);
   const reviewIds =
@@ -56,6 +60,7 @@ export default async function QuizPage({
         questionCount={questionCount}
         timeLimitSec={timeLimitSec}
         mode={mode}
+        revealMode={revealMode}
         reviewIds={reviewIds}
       />
     </ClientOnly>

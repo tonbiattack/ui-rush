@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { QuestionDetail } from "@/components/question-label";
 import { getQuestion, type Question } from "@/lib/questions";
 import { loadResult, type StoredResult } from "@/lib/result-storage";
-import { summarize, type QuizResult } from "@/lib/quiz";
+import { summarizeAnswers, type QuizResult } from "@/lib/quiz";
 
 interface WeakItem {
   question: Question;
@@ -18,18 +18,7 @@ function buildResult(stored: StoredResult): {
   summary: QuizResult;
   weak: WeakItem[];
 } {
-  const summary = summarize({
-    session: {
-      mode: stored.mode,
-      timeLimitSec: stored.timeLimitSec,
-      questions: stored.questionIds.map((id) => ({ questionId: id, choices: [] })),
-    },
-    index: Math.max(0, stored.questionIds.length - 1),
-    answers: stored.answers,
-    phase: "finished",
-    deadline: 0,
-    revealDeadline: null,
-  });
+  const summary = summarizeAnswers(stored.answers, stored.questionIds.length);
 
   const weak: WeakItem[] = [];
   for (const answer of stored.answers) {
@@ -77,9 +66,9 @@ export function ResultClient() {
   }
 
   const { summary, weak } = data;
-  const retryHref = `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=normal`;
+  const retryHref = `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=normal&reveal=${stored.revealMode}`;
   const reviewIds = Array.from(new Set(weak.map((item) => item.question.id)));
-  const reviewHref = `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=review&ids=${reviewIds.join(",")}`;
+  const reviewHref = `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=review&reveal=${stored.revealMode}&ids=${reviewIds.join(",")}`;
 
   return (
     <main className="flex flex-1 flex-col gap-4 py-2">
@@ -91,7 +80,8 @@ export function ResultClient() {
           {summary.correct} / {summary.total} 問正解
         </h1>
         <p className="text-sm text-slate-600">
-          {stored.mode === "review" ? "苦手復習" : "通常"}・{stored.timeLimitSec}秒設定
+          {stored.mode === "review" ? "苦手復習" : "通常"}・{stored.timeLimitSec}秒設定・
+          {stored.revealMode === "auto" ? "自動で次へ" : "自分で次へ"}
         </p>
       </header>
 

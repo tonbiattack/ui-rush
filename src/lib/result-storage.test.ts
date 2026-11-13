@@ -21,6 +21,7 @@ const answers: AnswerRecord[] = [
 const base = {
   mode: "normal" as const,
   timeLimitSec: 5 as const,
+  revealMode: "manual" as const,
   questionCount: 10 as const,
   answers,
   questionIds: [QUESTIONS[0].id, QUESTIONS[1].id],
@@ -33,11 +34,21 @@ describe("結果の受け渡し", () => {
     expect(parsed).toMatchObject({
       mode: "normal",
       timeLimitSec: 5,
+      revealMode: "manual",
       questionCount: 10,
       answers,
       questionIds: base.questionIds,
       finishedAt: "2026-01-01T00:00:00.000Z",
     });
+  });
+
+  it("旧データに進め方の設定が無ければ手動送りとして扱う", () => {
+    const legacy = JSON.stringify({
+      ...base,
+      revealMode: undefined,
+      version: 1,
+    });
+    expect(parseStoredResult(legacy)?.revealMode).toBe("manual");
   });
 
   it("未保存・壊れたJSON・型違いはnull", () => {

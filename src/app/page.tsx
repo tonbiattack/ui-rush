@@ -10,6 +10,7 @@ import {
   QUESTION_COUNT_OPTIONS,
   TIME_LIMIT_OPTIONS,
   type QuestionCount,
+  type RevealMode,
   type TimeLimitSec,
 } from "@/lib/quiz";
 
@@ -157,23 +158,31 @@ export default function HomePage() {
   // 画面上の選択はローカルに持ち、開始時に保存する。
   const [timeOverride, setTimeOverride] = useState<TimeLimitSec | null>(null);
   const [countOverride, setCountOverride] = useState<QuestionCount | null>(null);
+  const [revealOverride, setRevealOverride] = useState<RevealMode | null>(null);
 
   const timeLimitSec = timeOverride ?? settings.time;
   const questionCount = countOverride ?? settings.count;
+  const revealMode = revealOverride ?? settings.reveal;
   const weakCount = useMemo(() => weakQuestionIds(history).length, [history]);
 
   const changeTime = (value: TimeLimitSec) => {
     setTimeOverride(value);
-    saveSettings({ time: value, count: questionCount });
+    saveSettings({ time: value, count: questionCount, reveal: revealMode });
   };
   const changeCount = (value: QuestionCount) => {
     setCountOverride(value);
-    saveSettings({ time: timeLimitSec, count: value });
+    saveSettings({ time: timeLimitSec, count: value, reveal: revealMode });
+  };
+  const changeReveal = (value: RevealMode) => {
+    setRevealOverride(value);
+    saveSettings({ time: timeLimitSec, count: questionCount, reveal: value });
   };
 
   const start = (mode: "normal" | "review") => {
-    saveSettings({ time: timeLimitSec, count: questionCount });
-    router.push(`/quiz?count=${questionCount}&time=${timeLimitSec}&mode=${mode}`);
+    saveSettings({ time: timeLimitSec, count: questionCount, reveal: revealMode });
+    router.push(
+      `/quiz?count=${questionCount}&time=${timeLimitSec}&mode=${mode}&reveal=${revealMode}`,
+    );
   };
 
   return (
@@ -206,6 +215,47 @@ export default function HomePage() {
           suffix="問"
         />
       </div>
+
+      <fieldset className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
+        <legend className="px-1 text-sm font-bold">正誤表示のあと</legend>
+        <p className="mb-2 text-xs text-slate-500">
+          正解・不正解と解説を見ている間はタイマーが止まります。
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {(
+            [
+              {
+                value: "manual" as const,
+                label: "自分で次へ",
+                note: "解説を読む時間を確保（おすすめ）",
+              },
+              {
+                value: "auto" as const,
+                label: "自動で次へ",
+                note: "5秒後にテンポよく進む",
+              },
+            ] satisfies Array<{ value: RevealMode; label: string; note: string }>
+          ).map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={revealMode === option.value}
+              onClick={() => changeReveal(option.value)}
+              className={cx(
+                "focus-ring rounded-xl border-2 px-2 py-2 text-left transition-colors",
+                revealMode === option.value
+                  ? "border-brand-600 bg-brand-50 text-brand-700"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300",
+              )}
+            >
+              <span className="block text-sm font-bold">{option.label}</span>
+              <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">
+                {option.note}
+              </span>
+            </button>
+          ))}
+        </div>
+      </fieldset>
 
       <div className="flex flex-col gap-2">
         <button
