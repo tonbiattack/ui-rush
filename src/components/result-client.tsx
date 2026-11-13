@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { getQuestion, type Question } from "@/lib/questions";
 import { loadResult, type StoredResult } from "@/lib/result-storage";
-import { summarizeAnswers, type QuizResult } from "@/lib/quiz";
+import { summarizeAnswers, type QuizMode, type QuizResult } from "@/lib/quiz";
 import { Figure, Masthead } from "@/components/ui-kit";
 import { InstructionExample } from "@/components/term-detail";
+import { recordTimeAttack } from "@/lib/use-best-scores";
 
 interface WeakItem {
   question: Question;
@@ -19,7 +20,10 @@ function buildResult(stored: StoredResult): {
   summary: QuizResult;
   weak: WeakItem[];
 } {
-  const summary = summarizeAnswers(stored.answers, stored.questionIds.length);
+  // タイムアタックは同じ問題を繰り返すため、出題数ではなく回答数を分母にする。
+  const total =
+    stored.mode === "timeattack" ? stored.answers.length : stored.questionIds.length;
+  const summary = summarizeAnswers(stored.answers, total);
 
   const weak: WeakItem[] = [];
   for (const answer of stored.answers) {
@@ -40,16 +44,30 @@ function buildResult(stored: StoredResult): {
   return { summary, weak };
 }
 
-const MODE_LABELS = {
+const MODE_LABELS: Record<QuizMode, string> = {
   normal: "通常",
   review: "苦手復習",
   confusable: "呼び分け特訓",
-} as const;
+  reverse: "逆引き",
+  keyboard: "キーボード操作",
+  timeattack: "60秒タイムアタック",
+  spaced: "今日の復習",
+  spotlight: "UIパーツ探し",
+};
 
 export function ResultClient() {
   const router = useRouter();
   // このコンポーネントはClientOnly配下でのみ描画されるため、初期化時に直接読み取れる。
   const [stored] = useState<StoredResult | null>(() => loadResult());
+  // タイムアタックは自己ベストを更新する。表示のため、初回に一度だけ判定する。
+  const [bestUpdated] = useState(() => {
+    const result = loadResult();
+    if (!result || result.mode !== "timeattack") {
+      return false;
+    }
+    const correct = result.answers.filter((answer) => answer.outcome === "correct").length;
+    return recordTimeAttack(correct);
+  });
 
   const data = useMemo(() => (stored ? buildResult(stored) : null), [stored]);
 
@@ -71,8 +89,9 @@ export function ResultClient() {
   }
 
   const { summary, weak } = data;
-  const isConfusable = stored.mode === "confusable";
-  const retryHref = `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=${isConfusable ? "confusable" : "normal"}&reveal=${stored.revealMode}`;
+  const retryMode: QuizMode =
+    stored.mode === "normal" || stored.mode === "spaced" ? "normal" : stored.mode;
+  const retryHref = `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=${retryMode}&reveal=${stored.revealMode}`;
   const reviewIds = Array.from(new Set(weak.map((item) => item.question.id)));
   const reviewHref = `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=review&reveal=${stored.revealMode}&ids=${reviewIds.join(",")}`;
   const wrongRatio = summary.total === 0 ? 0 : summary.correct / summary.total;
@@ -83,16 +102,28 @@ export function ResultClient() {
 
       <header className="border-b border-ink pb-4">
         <p className="text-[11px] text-muted">
-          {MODE_LABELS[stored.mode]}・{stored.timeLimitSec}秒・
-          {stored.revealMode === "auto" ? "自動で次へ" : "自分で次へ"}
+          {MODE_LABELS[stored.mode]}・
+          {stored.mode === "timeattack"
+            ? "60秒"
+            : `${stored.timeLimitSec}秒・${stored.revealMode === "auto" ? "自動で次へ" : "自分で次へ"}`}
         </p>
         <div className="mt-1 flex items-end gap-3">
           <p className="instrument text-6xl font-semibold leading-none">
             {summary.correct}
             <span className="text-2xl text-muted">/{summary.total}</span>
           </p>
-          <p className="pb-1 text-sm text-muted">問正解</p>
+          <p className="pb-1 text-sm text-muted">
+            {stored.mode === "timeattack" ? "問正解（60秒）" : "問正解"}
+          </p>
         </div>
+        {stored.mode === "timeattack" && (
+          <p className="mt-1 text-[11px] text-muted">
+            {bestUpdated ? "自己ベストを更新しました。" : "自己ベストは更新されませんでした。"}
+            {typeof stored.elapsedMs === "number" &&
+              summary.answered > 0 &&
+              ` 平均 ${(Math.min(stored.elapsedMs, 60_000) / 1000 / summary.answered).toFixed(1)}秒／問`}
+          </p>
+        )}
 
         {/* 正誤の比率を1本の帯で示す。色だけに頼らず、下の数値でも確認できる。 */}
         <div
@@ -140,7 +171,7 @@ export function ResultClient() {
           </p>
         ) : (
           <ul>
-            {weak.map((item, index) => {
+            {weak.slice(0, 20).map((item, index) => {
               const selected = item.selectedChoiceId ? getQuestion(item.selectedChoiceId) : null;
               return (
                 <li key={`${item.question.id}-${index}`} className="border-b border-rule py-3">
@@ -168,6 +199,11 @@ export function ResultClient() {
                 </li>
               );
             })}
+            {weak.length > 20 && (
+              <li className="py-2 text-[11px] text-muted">
+                ほか {weak.length - 20} 件は用語図鑑で確認できます。
+              </li>
+            )}
           </ul>
         )}
       </section>
@@ -179,10 +215,12 @@ export function ResultClient() {
           className="focus-ring flex items-baseline justify-between gap-3 bg-ink px-5 py-4 text-paper transition-colors hover:bg-ink-soft"
         >
           <span className="text-base font-bold">
-            {isConfusable ? "もう一度特訓する" : "もう一度挑戦する"}
+            {stored.mode === "confusable" ? "もう一度特訓する" : "もう一度挑戦する"}
           </span>
           <span className="instrument text-[11px] text-paper/70">
-            {stored.questionCount}問 / {stored.timeLimitSec}秒
+            {stored.mode === "timeattack"
+              ? "60秒"
+              : `${stored.questionCount}問 / ${stored.timeLimitSec}秒`}
           </span>
         </button>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -193,7 +231,9 @@ export function ResultClient() {
             className="focus-ring flex items-baseline justify-between gap-2 border border-ink px-4 py-3 text-left text-sm font-bold transition-colors hover:bg-ink hover:text-paper disabled:cursor-not-allowed disabled:border-rule-strong disabled:text-muted disabled:hover:bg-transparent disabled:hover:text-muted"
           >
             間違えた問題を復習
-            <span className="instrument text-[11px] opacity-70">{weak.length}問</span>
+            <span className="instrument text-[11px] opacity-70">
+              {reviewIds.length}問
+            </span>
           </button>
           <Link
             href="/"
