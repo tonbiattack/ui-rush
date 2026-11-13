@@ -1,5 +1,6 @@
 import {
   CATEGORY_FALLBACK,
+  CONFUSABLE_PAIRS,
   QUESTIONS,
   QUESTIONS_BY_ID,
   isConfusable,
@@ -17,7 +18,12 @@ export const AUTO_REVEAL_MS = 5000;
 
 export type TimeLimitSec = (typeof TIME_LIMIT_OPTIONS)[number];
 export type QuestionCount = (typeof QUESTION_COUNT_OPTIONS)[number];
-export type QuizMode = "normal" | "review";
+/**
+ * - normal: 全用語から4択
+ * - review: 苦手な問題だけ
+ * - confusable: 呼び間違えやすいペアの2択特訓
+ */
+export type QuizMode = "normal" | "review" | "confusable";
 /**
  * 正誤と解説を見せたあとの進め方。
  * - manual: タイマーを止めて待機し、ユーザーが「次へ」を押すまで進まない（既定）
@@ -82,7 +88,7 @@ export function isQuestionCount(value: unknown): value is QuestionCount {
 }
 
 export function isQuizMode(value: unknown): value is QuizMode {
-  return value === "normal" || value === "review";
+  return value === "normal" || value === "review" || value === "confusable";
 }
 
 export function isRevealMode(value: unknown): value is RevealMode {
@@ -173,6 +179,49 @@ export function createQuizSession({
   });
 
   return { mode, timeLimitSec, revealMode, questions };
+}
+
+/**
+ * 呼び間違えやすいペアを、両方向（Aを問う・Bを問う）で2択出題する。
+ * 選択肢は「正解＋紛らわしい相手」だけにして、名称の違いに集中できるようにする。
+ */
+export function createConfusableSession({
+  timeLimitSec,
+  revealMode = "manual",
+  pairCount,
+  rng = Math.random,
+}: {
+  timeLimitSec: TimeLimitSec;
+  revealMode?: RevealMode;
+  /** 出題するペア数。省略時はすべてのペア。 */
+  pairCount?: number;
+  rng?: Rng;
+}): QuizSession {
+  const availablePairs = CONFUSABLE_PAIRS.filter(
+    (pair) => QUESTIONS_BY_ID.has(pair.a) && QUESTIONS_BY_ID.has(pair.b),
+  );
+  const pairs = sample(
+    availablePairs,
+    Math.min(pairCount ?? availablePairs.length, availablePairs.length),
+    rng,
+  );
+
+  const questions: QuizQuestion[] = pairs.flatMap((pair) =>
+    [pair.a, pair.b].map((answerId) => {
+      const partnerId = answerId === pair.a ? pair.b : pair.a;
+      return {
+        questionId: answerId,
+        choices: shuffle([answerId, partnerId], rng),
+      };
+    }),
+  );
+
+  return {
+    mode: "confusable",
+    timeLimitSec,
+    revealMode,
+    questions: shuffle(questions, rng),
+  };
 }
 
 export function timeLimitMs(seconds: TimeLimitSec): number {

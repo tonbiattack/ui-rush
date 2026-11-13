@@ -6,6 +6,7 @@ import {
   TIME_LIMIT_OPTIONS,
   advance,
   advanceIfReady,
+  createConfusableSession,
   createQuizSession,
   currentQuestion,
   recordTimeout,
@@ -17,7 +18,14 @@ import {
   type QuizSession,
   type TimeLimitSec,
 } from "@/lib/quiz";
-import { QUESTIONS, QUESTIONS_BY_ID, isConfusable } from "@/lib/questions";
+import {
+  CONFUSABLE_PAIRS,
+  QUESTIONS,
+  QUESTIONS_BY_ID,
+  getConfusablePartners,
+  getDistinction,
+  isConfusable,
+} from "@/lib/questions";
 
 const fixedRng = (values: number[]) => {
   let i = 0;
@@ -55,6 +63,38 @@ describe("問題データ", () => {
   it("日本語名が重複しない", () => {
     const names = QUESTIONS.map((question) => question.nameJa);
     expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("すべての用語にAIへの指示例がある", () => {
+    for (const question of QUESTIONS) {
+      expect(question.exampleInstruction.trim()).not.toBe("");
+      // 指示例はその用語自身を含み、そのまま使える文になっている。
+      expect(question.exampleInstruction).toContain(question.nameJa);
+    }
+  });
+
+  it("呼び分けペアは登録済みの用語だけを指し、説明を持つ", () => {
+    expect(CONFUSABLE_PAIRS.length).toBeGreaterThan(0);
+    const seen = new Set<string>();
+    for (const pair of CONFUSABLE_PAIRS) {
+      expect(QUESTIONS_BY_ID.has(pair.a)).toBe(true);
+      expect(QUESTIONS_BY_ID.has(pair.b)).toBe(true);
+      expect(pair.a).not.toBe(pair.b);
+      expect(pair.distinction.trim()).not.toBe("");
+      // 同じペアを両方向で重複登録しない。
+      const key = [pair.a, pair.b].sort().join("|");
+      expect(seen.has(key)).toBe(false);
+      seen.add(key);
+    }
+  });
+
+  it("呼び分けペアは双方から引ける", () => {
+    for (const pair of CONFUSABLE_PAIRS) {
+      expect(getConfusablePartners(pair.a)).toContain(pair.b);
+      expect(getConfusablePartners(pair.b)).toContain(pair.a);
+      expect(getDistinction(pair.a, pair.b)).toBe(pair.distinction);
+      expect(getDistinction(pair.b, pair.a)).toBe(pair.distinction);
+    }
   });
 
   it("紛らわしい組み合わせは相互に登録されている", () => {
@@ -162,6 +202,47 @@ describe("createQuizSession", () => {
     expect(
       createQuizSession({ questionCount: 10, timeLimitSec: 5, revealMode: "auto" }).revealMode,
     ).toBe("auto");
+  });});
+
+describe("呼び分け特訓", () => {
+  it("全ペアを両方向で出題し、選択肢は2択", () => {
+    const quiz = createConfusableSession({ timeLimitSec: 5 });
+    expect(quiz.mode).toBe("confusable");
+    expect(quiz.questions).toHaveLength(CONFUSABLE_PAIRS.length * 2);
+
+    for (const item of quiz.questions) {
+      expect(item.choices).toHaveLength(2);
+      expect(item.choices).toContain(item.questionId);
+      // もう1つの選択肢は必ず「呼び間違えやすい相手」。
+      const partner = item.choices.find((choice) => choice !== item.questionId);
+      expect(isConfusable(item.questionId, partner!)).toBe(true);
+    }
+  });
+
+  it("同じ用語を二重に出題しない", () => {
+    const quiz = createConfusableSession({ timeLimitSec: 5 });
+    const ids = quiz.questions.map((question) => question.questionId);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("正解位置はシャッフルされ、固定されない", () => {
+    const positions = new Set<number>();
+    for (let i = 0; i < 30; i += 1) {
+      for (const item of createConfusableSession({ timeLimitSec: 5 }).questions) {
+        positions.add(item.choices.indexOf(item.questionId));
+      }
+    }
+    expect(positions).toEqual(new Set([0, 1]));
+  });
+
+  it("ペア数を指定するとその数だけ（両方向で）出題する", () => {
+    const quiz = createConfusableSession({ timeLimitSec: 5, pairCount: 2 });
+    expect(quiz.questions).toHaveLength(4);
+  });
+
+  it("多めに指定しても収録ペア数を超えない", () => {
+    const quiz = createConfusableSession({ timeLimitSec: 5, pairCount: 100 });
+    expect(quiz.questions).toHaveLength(CONFUSABLE_PAIRS.length * 2);
   });
 });
 

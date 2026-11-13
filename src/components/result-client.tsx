@@ -66,7 +66,10 @@ export function ResultClient() {
   }
 
   const { summary, weak } = data;
-  const retryHref = `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=normal&reveal=${stored.revealMode}`;
+  const isConfusable = stored.mode === "confusable";
+  const retryHref = isConfusable
+    ? `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=confusable&reveal=${stored.revealMode}`
+    : `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=normal&reveal=${stored.revealMode}`;
   const reviewIds = Array.from(new Set(weak.map((item) => item.question.id)));
   const reviewHref = `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=review&reveal=${stored.revealMode}&ids=${reviewIds.join(",")}`;
 
@@ -80,7 +83,12 @@ export function ResultClient() {
           {summary.correct} / {summary.total} 問正解
         </h1>
         <p className="text-sm text-slate-600">
-          {stored.mode === "review" ? "苦手復習" : "通常"}・{stored.timeLimitSec}秒設定・
+          {stored.mode === "review"
+            ? "苦手復習"
+            : stored.mode === "confusable"
+              ? "呼び分け特訓"
+              : "通常"}
+          ・{stored.timeLimitSec}秒設定・
           {stored.revealMode === "auto" ? "自動で次へ" : "自分で次へ"}
         </p>
       </header>
@@ -144,7 +152,7 @@ export function ResultClient() {
           onClick={() => router.push(retryHref)}
           className="focus-ring rounded-2xl bg-brand-600 px-6 py-4 text-base font-bold text-white hover:bg-brand-700"
         >
-          もう一度挑戦する
+          {isConfusable ? "もう一度特訓する" : "もう一度挑戦する"}
         </button>
         <button
           type="button"

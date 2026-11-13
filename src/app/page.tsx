@@ -6,10 +6,12 @@ import { useMemo, useState } from "react";
 import { useHistory } from "@/lib/use-history";
 import { useSettings, saveSettings } from "@/lib/use-settings";
 import { totalAnswered, weakQuestionIds, type History } from "@/lib/history";
+import { CONFUSABLE_PAIRS } from "@/lib/questions";
 import {
   QUESTION_COUNT_OPTIONS,
   TIME_LIMIT_OPTIONS,
   type QuestionCount,
+  type QuizMode,
   type RevealMode,
   type TimeLimitSec,
 } from "@/lib/quiz";
@@ -178,10 +180,11 @@ export default function HomePage() {
     saveSettings({ time: timeLimitSec, count: questionCount, reveal: value });
   };
 
-  const start = (mode: "normal" | "review") => {
+  const start = (mode: QuizMode) => {
     saveSettings({ time: timeLimitSec, count: questionCount, reveal: revealMode });
+    const count = mode === "confusable" ? CONFUSABLE_PAIRS.length * 2 : questionCount;
     router.push(
-      `/quiz?count=${questionCount}&time=${timeLimitSec}&mode=${mode}&reveal=${revealMode}`,
+      `/quiz?count=${count}&time=${timeLimitSec}&mode=${mode}&reveal=${revealMode}`,
     );
   };
 
@@ -266,6 +269,16 @@ export default function HomePage() {
           クイズを始める
           <span className="ml-2 text-xs font-semibold opacity-90">
             {questionCount}問・{timeLimitSec}秒
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => start("confusable")}
+          className="focus-ring rounded-2xl border-2 border-brand-300 bg-brand-50 px-6 py-3 text-sm font-semibold text-brand-800 transition-colors hover:bg-brand-100"
+        >
+          呼び分け特訓
+          <span className="ml-2 text-xs font-medium text-brand-700">
+            似たUIを2択で{CONFUSABLE_PAIRS.length * 2}問
           </span>
         </button>
         <button
