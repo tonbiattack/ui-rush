@@ -9,6 +9,7 @@ import {
   createConfusableSession,
   createQuizSession,
   currentQuestion,
+  isQuestionCount,
   recordTimeout,
   remainingMs,
   startQuiz,
@@ -110,6 +111,14 @@ describe("問題データ", () => {
 });
 
 describe("createQuizSession", () => {
+  it("出題数は5・10・20問から選べる", () => {
+    expect(QUESTION_COUNT_OPTIONS).toEqual([5, 10, 20]);
+    for (const count of QUESTION_COUNT_OPTIONS) {
+      expect(isQuestionCount(count)).toBe(true);
+    }
+    expect(isQuestionCount(15)).toBe(false);
+  });
+
   it("指定した問題数を重複なく出題する", () => {
     for (const count of QUESTION_COUNT_OPTIONS) {
       const quiz = createQuizSession({ questionCount: count, timeLimitSec: 5 });
@@ -124,8 +133,7 @@ describe("createQuizSession", () => {
     }
   });
 
-  it("正解位置が固定されない", () => {
-    const positions = new Map<number, number>();
+  it("正解位置が固定されない", () => {    const positions = new Map<number, number>();
     for (let i = 0; i < 60; i += 1) {
       const quiz = createQuizSession({ questionCount: 10, timeLimitSec: 5 });
       for (const question of quiz.questions) {

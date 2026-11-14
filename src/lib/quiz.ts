@@ -12,7 +12,7 @@ import { sample, shuffle, type Rng } from "./random";
 
 export const TIME_LIMIT_OPTIONS = [3, 5, 8] as const;
 export const DEFAULT_TIME_LIMIT_SEC = 5 as const;
-export const QUESTION_COUNT_OPTIONS = [10, 20] as const;
+export const QUESTION_COUNT_OPTIONS = [5, 10, 20] as const;
 export const DEFAULT_QUESTION_COUNT = 10 as const;
 export const CHOICE_COUNT = 4;
 /** 「自動で次へ」を選んだときに、正誤と解説を見せる時間。 */
