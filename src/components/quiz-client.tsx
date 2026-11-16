@@ -8,6 +8,7 @@ import { UiDemo } from "@/components/ui-demos";
 import { matchesQuestion, useSpeech } from "@/lib/use-speech";
 import { getHistorySnapshot, useHistory } from "@/lib/use-history";
 import { weakQuestionIds } from "@/lib/history";
+import { markOnboarded, useOnboarding } from "@/lib/use-onboarding";
 import { saveResult } from "@/lib/result-storage";
 import {
   COMBO_BONUS_MAX,
@@ -142,6 +143,8 @@ export function QuizClient({
 }: QuizClientProps) {
   const router = useRouter();
   const { addAnswers } = useHistory();
+  // 初回だけ、得点の読み方を1問目のうちに伝える（別画面のチュートリアルは挟まない）。
+  const showOnboarding = useOnboarding();
 
   // セッションと開始時刻は初回レンダリング時に一度だけ確定する。
   const [session] = useState<QuizSession | null>(() => {
@@ -576,6 +579,24 @@ export function QuizClient({
             </dd>
           </div>
         </dl>
+
+        {/* 初回だけ、得点の読み方を本編の1問目に重ねて伝える。閉じる操作は要らない。 */}
+        {showOnboarding && state.index === 0 && !answer && (
+          <p
+            data-testid="onboarding-note"
+            className="mt-2 border-l-2 border-l-ink bg-surface px-2 py-1.5 text-[11px] leading-relaxed text-ink-soft"
+          >
+            「正解なら」の数字は、いま答えると入る得点です。時間が経つほど減るので、
+            早く押すほど高くなります。誤答すると連続正解が0に戻ります。
+            <button
+              type="button"
+              onClick={markOnboarded}
+              className="focus-ring ml-2 font-bold underline underline-offset-4"
+            >
+              わかった
+            </button>
+          </p>
+        )}
       </header>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">

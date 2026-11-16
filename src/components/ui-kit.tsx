@@ -51,6 +51,38 @@ export function SpecRow({
   );
 }
 
+/**
+ * 折りたたみ。設定や決まりごとのように、最初に読ませなくてよい内容を
+ * 開始導線より下へ退避させるために使う。既定は閉じた状態。
+ */
+export function Disclosure({
+  title,
+  note,
+  children,
+}: {
+  title: string;
+  note?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group border-b border-rule">
+      <summary className="focus-ring flex cursor-pointer list-none items-baseline justify-between gap-2 py-3 [&::-webkit-details-marker]:hidden">
+        <span className="text-sm font-bold">{title}</span>
+        <span className="flex items-baseline gap-2">
+          {note ? <span className="text-[11px] text-muted">{note}</span> : null}
+          <span
+            aria-hidden="true"
+            className="text-[11px] text-muted transition-transform group-open:rotate-180"
+          >
+            ▾
+          </span>
+        </span>
+      </summary>
+      <div className="pb-3">{children}</div>
+    </details>
+  );
+}
+
 /** 押せる選択肢。角丸カードではなく、枠線と反転で状態を表す。 */
 export function ChoiceTile({
   selected,

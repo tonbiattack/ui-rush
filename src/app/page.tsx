@@ -2,22 +2,26 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useHistory } from "@/lib/use-history";
-import { useSettings, saveSettings } from "@/lib/use-settings";
+import { useSettings, saveSettings, type Settings } from "@/lib/use-settings";
 import { bestScoreFor, scoreKey, useBestScores } from "@/lib/use-best-scores";
 import { dueCount, totalAnswered, weakQuestionIds, type History } from "@/lib/history";
 import { CONFUSABLE_PAIRS, KEYBOARD_QUESTIONS, QUESTIONS } from "@/lib/questions";
 import {
   QUESTION_COUNT_OPTIONS,
   TIME_LIMIT_OPTIONS,
-  type QuestionCount,
   type QuizMode,
-  type RevealMode,
-  type TimeLimitSec,
 } from "@/lib/quiz";
 import { BASE_POINTS, COMBO_BONUS_MAX, COMBO_STEP, SPEED_BONUS_MAX } from "@/lib/score";
-import { ChoiceTile, Figure, Masthead, SectionHead, SpecRow } from "@/components/ui-kit";
+import {
+  ChoiceTile,
+  Disclosure,
+  Figure,
+  Masthead,
+  SectionHead,
+  SpecRow,
+} from "@/components/ui-kit";
 
 const cx = (...values: Array<string | false | null | undefined>) =>
   values.filter(Boolean).join(" ");
@@ -129,27 +133,39 @@ export default function HomePage() {
   const { history, clear } = useHistory();
   const settings = useSettings();
 
-  const [timeOverride, setTimeOverride] = useState<TimeLimitSec | null>(null);
-  const [countOverride, setCountOverride] = useState<QuestionCount | null>(null);
-  const [revealOverride, setRevealOverride] = useState<RevealMode | null>(null);
+  // 設定は1つのまとまりとして持つ。3つに分けると、同じ描画内で複数押したときに
+  // 古い値で上書きされる（連打で設定が戻る）。
+  const [overrides, setOverrides] = useState<Partial<Settings>>({});
+  const timeLimitSec = overrides.time ?? settings.time;
+  const questionCount = overrides.count ?? settings.count;
+  const revealMode = overrides.reveal ?? settings.reveal;
 
-  const timeLimitSec = timeOverride ?? settings.time;
-  const questionCount = countOverride ?? settings.count;
-  const revealMode = revealOverride ?? settings.reveal;
   const weakCount = useMemo(() => weakQuestionIds(history).length, [history]);
   const reviewDue = useMemo(() => dueCount(history), [history]);
   const best = useBestScores();
   const normalBest = bestScoreFor(best, scoreKey("normal", questionCount, timeLimitSec));
 
-  const save = (next: { time?: TimeLimitSec; count?: QuestionCount; reveal?: RevealMode }) =>
+  // 直前の状態を関数形式で受け取るので、連続で押しても取りこぼさない。
+  const update = (patch: Partial<Settings>) =>
+    setOverrides((previous) => ({
+      time: patch.time ?? previous.time ?? settings.time,
+      count: patch.count ?? previous.count ?? settings.count,
+      reveal: patch.reveal ?? previous.reveal ?? settings.reveal,
+    }));
+
+  // 変更を保存する。描画のたびに走らせず、設定が変わったときだけ書く。
+  useEffect(() => {
+    if (Object.keys(overrides).length === 0) {
+      return;
+    }
     saveSettings({
-      time: next.time ?? timeLimitSec,
-      count: next.count ?? questionCount,
-      reveal: next.reveal ?? revealMode,
+      time: overrides.time ?? settings.time,
+      count: overrides.count ?? settings.count,
+      reveal: overrides.reveal ?? settings.reveal,
     });
+  }, [overrides, settings.time, settings.count, settings.reveal]);
 
   const start = (mode: QuizMode) => {
-    save({});
     const count = mode === "confusable" ? CONFUSABLE_PAIRS.length * 2 : questionCount;
     router.push(`/quiz?count=${count}&time=${timeLimitSec}&mode=${mode}&reveal=${revealMode}`);
   };
@@ -158,125 +174,20 @@ export default function HomePage() {
     <main className="flex flex-1 flex-col">
       <Masthead right={<span className="instrument">{QUESTIONS.length}語</span>} />
 
-      <section className="border-b border-ink pb-6">
+      <section className="border-b border-ink pb-5">
         <h1 className="text-[clamp(1.45rem,4.6vw,2.4rem)] font-bold leading-[1.3] tracking-tight">
           UI用語クイズ
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+        <p className="mt-2 text-sm leading-relaxed text-ink-soft">
           操作できるデモが1問ずつ出ます。4択で名前を答えてください。
         </p>
         <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-          正誤表示のあとに、その用語を使ったAIへの指示例が出ます。
-        </p>
-        <dl className="mt-5 grid max-w-lg grid-cols-2 divide-x divide-rule border-y border-rule sm:grid-cols-4">
-          {[
-            { value: String(QUESTIONS.length), unit: "語", label: "収録" },
-            { value: "3–8", unit: "秒", label: "1問の制限" },
-            { value: String(KEYBOARD_QUESTIONS.length), unit: "問", label: "キーボード操作" },
-            {
-              value: String(best.timeAttack),
-              unit: "問",
-              label: "タイムアタック自己ベスト",
-            },
-          ].map((item) => (
-            <div key={item.label} className="px-3 py-2 first:pl-0">
-              <dt className="text-[10px] text-muted">{item.label}</dt>
-              <dd className="mt-0.5">
-                <Figure value={item.value} unit={item.unit} size="sm" />
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      <section aria-label="設定" className="mt-6">
-        <SectionHead title="今日の設定" note="開始時に保存されます" />
-        <SpecRow label="制限時間" hint="0秒で時間切れ（不正解）">
-          <SettingOptions
-            options={TIME_LIMIT_OPTIONS}
-            value={timeLimitSec}
-            onChange={(value) => {
-              setTimeOverride(value);
-              save({ time: value });
-            }}
-            suffix="秒"
-            label="制限時間"
-          />
-        </SpecRow>
-        <SpecRow label="出題数" hint="重複なしでシャッフル">
-          <SettingOptions
-            options={QUESTION_COUNT_OPTIONS}
-            value={questionCount}
-            onChange={(value) => {
-              setCountOverride(value);
-              save({ count: value });
-            }}
-            suffix="問"
-            label="出題数"
-          />
-        </SpecRow>
-        <SpecRow label="正誤のあと" hint="表示中はタイマーが止まります">
-          <div role="group" aria-label="正誤表示のあと" className="flex gap-2">
-            <ChoiceTile
-              selected={revealMode === "manual"}
-              onClick={() => {
-                setRevealOverride("manual");
-                save({ reveal: "manual" });
-              }}
-            >
-              自分で次へ
-            </ChoiceTile>
-            <ChoiceTile
-              selected={revealMode === "auto"}
-              onClick={() => {
-                setRevealOverride("auto");
-                save({ reveal: "auto" });
-              }}
-            >
-              5秒で自動
-            </ChoiceTile>
-          </div>
-        </SpecRow>
-      </section>
-
-      <section aria-label="得点の決まり" className="mt-6">
-        <SectionHead title="得点の決まり" note="早く答えるほど高い" />
-        <dl className="grid grid-cols-3 divide-x divide-rule border-b border-rule">
-          {[
-            {
-              label: "正解",
-              value: BASE_POINTS,
-              unit: "点",
-              note: "1問ごと",
-            },
-            {
-              label: "速さ",
-              value: `+0〜${SPEED_BONUS_MAX}`,
-              unit: "点",
-              note: "残り時間の割合",
-            },
-            {
-              label: "連続正解",
-              value: `+${COMBO_STEP}〜${COMBO_BONUS_MAX}`,
-              unit: "点",
-              note: "1問ごとに加算",
-            },
-          ].map((item) => (
-            <div key={item.label} className="px-3 py-3 first:pl-0">
-              <dt className="text-[11px] text-muted">{item.label}</dt>
-              <dd className="mt-0.5">
-                <Figure value={item.value} unit={item.unit} size="sm" />
-              </dd>
-              <p className="mt-0.5 text-[10px] leading-snug text-muted">{item.note}</p>
-            </div>
-          ))}
-        </dl>
-        <p className="mt-2 max-w-[46ch] text-[11px] leading-relaxed text-muted">
-          誤答と時間切れは0点です。早く答えるほど速さの点が増えますが、誤答すると連続正解が途切れます。
+          早く答えるほど得点が高くなります。正誤表示のあとに、その用語を使ったAIへの指示例が出ます。
         </p>
       </section>
 
-      <div className="mt-6 flex flex-col gap-2">
+      {/* 開始導線は最初の画面に置く。設定と決まりごとは下へ退避する。 */}
+      <div className="mt-5 flex flex-col gap-2">
         <button
           type="button"
           onClick={() => start("normal")}
@@ -366,6 +277,106 @@ export default function HomePage() {
           </button>
         </div>
       </div>
+
+      <section aria-label="設定" className="mt-6">
+        <Disclosure
+          title="今日の設定"
+          note={`${questionCount}問・${timeLimitSec}秒・${revealMode === "auto" ? "自動で次へ" : "自分で次へ"}`}
+        >
+          <SpecRow label="制限時間" hint="0秒で時間切れ（不正解）">
+            <SettingOptions
+              options={TIME_LIMIT_OPTIONS}
+              value={timeLimitSec}
+              onChange={(value) => update({ time: value })}
+              suffix="秒"
+              label="制限時間"
+            />
+          </SpecRow>
+          <SpecRow label="出題数" hint="重複なしでシャッフル">
+            <SettingOptions
+              options={QUESTION_COUNT_OPTIONS}
+              value={questionCount}
+              onChange={(value) => update({ count: value })}
+              suffix="問"
+              label="出題数"
+            />
+          </SpecRow>
+          <SpecRow label="正誤のあと" hint="表示中はタイマーが止まります">
+            <div role="group" aria-label="正誤表示のあと" className="flex gap-2">
+              <ChoiceTile
+                selected={revealMode === "manual"}
+                onClick={() => update({ reveal: "manual" })}
+              >
+                自分で次へ
+              </ChoiceTile>
+              <ChoiceTile
+                selected={revealMode === "auto"}
+                onClick={() => update({ reveal: "auto" })}
+              >
+                5秒で自動
+              </ChoiceTile>
+            </div>
+          </SpecRow>
+        </Disclosure>
+
+        <Disclosure title="得点の決まり" note="早く答えるほど高い">
+          <dl className="grid grid-cols-3 divide-x divide-rule border-b border-rule">
+            {[
+              {
+                label: "正解",
+                value: BASE_POINTS,
+                unit: "点",
+                note: "1問ごと",
+              },
+              {
+                label: "速さ",
+                value: `+0〜${SPEED_BONUS_MAX}`,
+                unit: "点",
+                note: "残り時間の割合",
+              },
+              {
+                label: "連続正解",
+                value: `+${COMBO_STEP}〜`,
+                unit: "点",
+                note: `最大 +${COMBO_BONUS_MAX}点`,
+              },
+            ].map((item) => (
+              <div key={item.label} className="px-3 py-3 first:pl-0">
+                <dt className="text-[11px] text-muted">{item.label}</dt>
+                <dd className="mt-0.5">
+                  <Figure value={item.value} unit={item.unit} size="sm" />
+                </dd>
+                <p className="mt-0.5 text-[10px] leading-snug text-muted">{item.note}</p>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-2 max-w-[46ch] text-[11px] leading-relaxed text-muted">
+            誤答と時間切れは0点です。早く答えるほど速さの点が増えますが、誤答すると連続正解が途切れます。
+          </p>
+        </Disclosure>
+
+        <Disclosure title="収録内容" note={`${QUESTIONS.length}語＋${KEYBOARD_QUESTIONS.length}問`}>
+          <dl className="grid max-w-lg grid-cols-2 divide-x divide-rule border-y border-rule sm:grid-cols-4">
+            {[
+              { value: String(QUESTIONS.length), unit: "語", label: "収録" },
+              { value: "3–8", unit: "秒", label: "1問の制限" },
+              { value: String(KEYBOARD_QUESTIONS.length), unit: "問", label: "キーボード操作" },
+              {
+                value: String(best.timeAttack),
+                unit: "問",
+                label: "タイムアタック自己ベスト",
+              },
+            ].map((item) => (
+              <div key={item.label} className="px-3 py-2 first:pl-0">
+                <dt className="text-[10px] text-muted">{item.label}</dt>
+                <dd className="mt-0.5">
+                  <Figure value={item.value} unit={item.unit} size="sm" />
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </Disclosure>
+      </section>
 
       <HistorySummary history={history} onClear={clear} />
 
