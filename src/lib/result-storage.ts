@@ -28,6 +28,8 @@ export interface StoredResult {
   score?: number;
   /** セッション中の最長連続正解数。旧バージョンの保存データには無いので省略可。 */
   maxCombo?: number;
+  /** UIパーツ探しの回答時間が実測されているときだけ true（旧結果との区別）。 */
+  timingRecorded?: boolean;
   finishedAt: string;
 }
 
@@ -106,6 +108,7 @@ export function parseStoredResult(raw: string | null): StoredResult | null {
       typeof candidate.maxCombo === "number" && Number.isFinite(candidate.maxCombo)
         ? Math.max(0, Math.floor(candidate.maxCombo))
         : undefined,
+    timingRecorded: candidate.timingRecorded === true,
     finishedAt: typeof candidate.finishedAt === "string" ? candidate.finishedAt : "",
   };
 }

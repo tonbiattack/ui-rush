@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- 紙。ダークテーマのタブバーでも沈まないよう、背景を必ず持たせる。 -->
+  <rect width="64" height="64" fill="#f1f2ed" />
+
+  <!-- 標本枠の四隅の目盛り。SpecimenFrame と同じ意匠（墨のL字）。 -->
+  <g fill="none" stroke="#16191a" stroke-width="4">
+    <path d="M2 14V2h12" />
+    <path d="M50 2h12v12" />
+    <path d="M2 50v12h12" />
+    <path d="M50 62h12V50" />
+  </g>
+
+  <!-- 速度線。アクセントはこの1箇所だけ。 -->
+  <rect x="6" y="29" width="8" height="6" fill="#ff4a00" />
+
+  <!-- 太い右向き矢印。UI（カーソル）と Rush（進行）を1つの形で表す。 -->
+  <path d="M18 26h16V18l18 14-18 14V38H18z" fill="#16191a" />
+</svg>

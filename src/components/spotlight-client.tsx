@@ -7,7 +7,8 @@ import { getQuestion, type Question } from "@/lib/questions";
 import { saveResult } from "@/lib/result-storage";
 import { useHistory } from "@/lib/use-history";
 import { timeLimitMs, type TimeLimitSec } from "@/lib/quiz";
-import { summarizeScore } from "@/lib/score";
+import { elapsedMsForAnswer, formatSeconds, scoreForAnswer, summarizeScore } from "@/lib/score";
+import { judgeSpotlightAnswer } from "@/lib/spotlight-timing";
 import { SpecimenFrame } from "@/components/ui-kit";
 import { InstructionExample } from "@/components/term-detail";
 
@@ -147,6 +148,8 @@ function Schematic({ id }: { id: string }) {
 interface SpotlightResult {
   question: Question;
   hit: "correct" | "wrong" | "timeout";
+  /** 回答または時間切れになった時点の残り時間（ミリ秒）。解答時間の集計に使う。 */
+  remainingMs: number;
 }
 
 export function SpotlightClient({ timeLimitSec }: { timeLimitSec: TimeLimitSec }) {
@@ -174,21 +177,26 @@ export function SpotlightClient({ timeLimitSec }: { timeLimitSec: TimeLimitSec }
       setNow(current);
       if (current >= deadline && !answeredRef.current && question) {
         answeredRef.current = true;
-        setResults((previous) => [...previous, { question, hit: "timeout" }]);
+        setResults((previous) => [...previous, { question, hit: "timeout", remainingMs: 0 }]);
         setPhase("revealed");
       }
     }, 100);
     return () => window.clearInterval(timer);
   }, [phase, deadline, question]);
 
-  const answer = (id: string) => {
+  const answer = (id: string, answeredAt: number) => {
     if (phase !== "answering" || !question || answeredRef.current) {
       return;
     }
     answeredRef.current = true;
+    const result = judgeSpotlightAnswer(question.id, id, deadline, answeredAt);
     setResults((previous) => [
       ...previous,
-      { question, hit: id === question.id ? "correct" : "wrong" },
+      {
+        question,
+        hit: result.outcome === "incorrect" ? "wrong" : result.outcome,
+        remainingMs: result.remainingMs,
+      },
     ]);
     setPhase("revealed");
   };
@@ -211,6 +219,7 @@ export function SpotlightClient({ timeLimitSec }: { timeLimitSec: TimeLimitSec }
       return;
     }
     finishedRef.current = true;
+    const limitMs = timeLimitMs(timeLimitSec);
     const answers = results.map((result) => ({
       questionId: result.question.id,
       selectedChoiceId: result.hit === "correct" ? result.question.id : null,
@@ -220,10 +229,10 @@ export function SpotlightClient({ timeLimitSec }: { timeLimitSec: TimeLimitSec }
           : result.hit === "timeout"
             ? ("timeout" as const)
             : ("incorrect" as const),
-      remainingMs: 0,
+      remainingMs: result.remainingMs,
     }));
     addAnswers(answers);
-    const finalScore = summarizeScore(answers, timeLimitMs(timeLimitSec));
+    const finalScore = summarizeScore(answers, limitMs);
     saveResult({
       mode: "spotlight",
       timeLimitSec,
@@ -231,9 +240,9 @@ export function SpotlightClient({ timeLimitSec }: { timeLimitSec: TimeLimitSec }
       questionCount: results.length,
       answers,
       questionIds: results.map((result) => result.question.id),
-      elapsedMs: results.length * timeLimitMs(timeLimitSec),
       score: finalScore.total,
       maxCombo: finalScore.maxCombo,
+      timingRecorded: true,
     });
     router.replace("/result");
   }, [phase, results, addAnswers, router, timeLimitSec]);
@@ -253,6 +262,16 @@ export function SpotlightClient({ timeLimitSec }: { timeLimitSec: TimeLimitSec }
   const ratio = Math.max(0, Math.min(1, remaining / timeLimitMs(timeLimitSec)));
   const last = results.at(-1);
   const isLast = index + 1 >= targets.length;
+  let streakBefore = 0;
+  for (let i = results.length - 2; i >= 0 && results[i].hit === "correct"; i -= 1) {
+    streakBefore += 1;
+  }
+  const lastScore = last && scoreForAnswer({
+    outcome: last.hit === "wrong" ? "incorrect" : last.hit,
+    remainingMs: last.remainingMs,
+    limitMs: timeLimitMs(timeLimitSec),
+    streakBefore,
+  });
 
   return (
     <main className="flex flex-1 flex-col">
@@ -316,11 +335,11 @@ export function SpotlightClient({ timeLimitSec }: { timeLimitSec: TimeLimitSec }
                 tabIndex={phase === "answering" ? 0 : -1}
                 aria-disabled={phase !== "answering"}
                 aria-label={`部品${spotIndex + 1}`}
-                onClick={() => answer(spot.id)}
+                onClick={() => answer(spot.id, performance.now())}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    answer(spot.id);
+                    answer(spot.id, performance.now());
                   }
                 }}
                 className={`focus-ring relative flex h-24 cursor-pointer flex-col justify-center border p-2 transition-colors ${
@@ -365,6 +384,10 @@ export function SpotlightClient({ timeLimitSec }: { timeLimitSec: TimeLimitSec }
           </p>
           <p className="mt-1 max-w-[42rem] text-xs leading-relaxed text-ink-soft">
             {last.question.description}
+          </p>
+          <p className="mt-2 border-y border-rule py-1.5 text-xs">
+            解答時間 <span className="instrument font-semibold">{formatSeconds(elapsedMsForAnswer(last.remainingMs, timeLimitMs(timeLimitSec)))}秒</span>
+            <span className="ml-4">この1問 <span className="instrument font-semibold">{lastScore?.total ?? 0}点</span></span>
           </p>
           <div className="mt-2 max-w-[42rem]">
             <InstructionExample question={last.question} />

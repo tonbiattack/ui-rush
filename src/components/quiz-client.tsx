@@ -14,9 +14,12 @@ import {
   COMBO_BONUS_MAX,
   COMBO_STEP,
   currentStreak,
+  elapsedMsForAnswer,
+  formatSeconds,
   potentialScore,
   scoreForAnswer,
   summarizeScore,
+  summarizeTiming,
 } from "@/lib/score";
 import {
   DistinctionNote,
@@ -440,6 +443,20 @@ export function QuizClient({
   const runningScore = scoreBefore + (earned?.total ?? 0);
   const comboActive = streakBefore > 0;
   const comboAtMax = streakBefore * COMBO_STEP >= COMBO_BONUS_MAX;
+
+  // 解答時間。出題中は経過をそのまま数え、回答後は確定値を出す。
+  const elapsedMs = answering
+    ? Math.max(0, limitMs - liveRemaining)
+    : answer
+      ? elapsedMsForAnswer(answer.remainingMs, limitMs)
+      : 0;
+  const priorTiming = summarizeTiming(settledAnswers, limitMs);
+  const timing = summarizeTiming(state.answers, limitMs);
+  // 誤答は最速記録と比較しない。正解した問題の中での最速を示す。
+  const isPersonalBest =
+    answeredCorrectly &&
+    priorTiming.fastestMs !== null &&
+    elapsedMs < priorTiming.fastestMs;
   const autoRevealRemainingMs =
     showingExplanation && state.revealDeadline !== null
       ? Math.max(0, state.revealDeadline - now)
@@ -530,9 +547,9 @@ export function QuizClient({
           </div>
         </div>
 
-        {/* 得点レール: 速く答えるほど増える点と、連続正解の伸びを並べる。 */}
-        <dl className="mt-2 grid grid-cols-3 divide-x divide-rule border-t border-rule pt-2">
-          <div className="pr-3">
+        {/* 得点レール: 速く答えるほど増える点、解答秒数、連続正解の伸びを並べる。 */}
+        <dl className="mt-2 grid grid-cols-4 divide-x divide-rule border-t border-rule pt-2">
+          <div className="pr-2">
             <dt className="text-[10px] text-muted">得点</dt>
             <dd
               data-testid="running-score"
@@ -541,7 +558,7 @@ export function QuizClient({
               {formatPoints(runningScore)}
             </dd>
           </div>
-          <div className="px-3">
+          <div className="px-2">
             <dt className="text-[10px] text-muted">
               {showingExplanation ? "この1問" : "正解なら"}
             </dt>
@@ -562,7 +579,23 @@ export function QuizClient({
                 : formatPoints(potential?.total ?? 0)}
             </dd>
           </div>
-          <div className="pl-3">
+          <div className="px-2">
+            <dt className="text-[10px] text-muted">
+              {showingExplanation ? "解答時間" : "経過"}
+            </dt>
+            <dd className="mt-0.5 flex items-baseline gap-1">
+              <span
+                data-testid="elapsed-seconds"
+                className={`instrument text-lg font-semibold leading-none ${
+                  isPersonalBest ? "text-correct" : "text-ink"
+                }`}
+              >
+                {formatSeconds(elapsedMs)}
+              </span>
+              <span className="text-[10px] text-muted">秒</span>
+            </dd>
+          </div>
+          <div className="pl-2">
             <dt className="text-[10px] text-muted">連続正解</dt>
             <dd className="mt-0.5 flex items-baseline gap-1">
               <span
@@ -818,6 +851,49 @@ export function QuizClient({
               )}
               {earned.total > 0 && earned.combo >= COMBO_BONUS_MAX && (
                 <p className="text-correct">連続正解のボーナスは上限です</p>
+              )}
+            </dl>
+          )}
+
+          {/* 解答時間の内訳。この1問と、ここまでの平均・最速を並べる。 */}
+          {answer && (
+            <dl
+              data-testid="timing-breakdown"
+              className="mt-1 flex max-w-[42rem] flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-rule py-1.5 text-[11px]"
+            >
+              <div className="flex items-baseline gap-1">
+                <dt className="text-muted">この1問</dt>
+                <dd
+                  className={`instrument font-semibold ${
+                    isPersonalBest ? "text-correct" : "text-ink"
+                  }`}
+                >
+                  {formatSeconds(elapsedMs)}秒
+                </dd>
+              </div>
+              {timing.correctCount > 0 && (
+                <>
+                  <div className="flex items-baseline gap-1">
+                    <dt className="text-muted">正解の平均</dt>
+                    <dd className="instrument font-semibold">
+                      {formatSeconds(timing.averageMs)}秒
+                    </dd>
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <dt className="text-muted">正解の最速</dt>
+                    <dd className="instrument font-semibold">
+                      {formatSeconds(timing.fastestMs)}秒
+                    </dd>
+                  </div>
+                </>
+              )}
+              {isPersonalBest && (
+                <p className="font-bold text-correct">このセッションで最速です</p>
+              )}
+              {answeredCorrectly && !isPersonalBest && priorTiming.fastestMs !== null && elapsedMs - priorTiming.fastestMs >= 10 && (
+                <p className="text-muted">
+                  最速より {formatSeconds(elapsedMs - priorTiming.fastestMs)}秒 遅い
+                </p>
               )}
             </dl>
           )}

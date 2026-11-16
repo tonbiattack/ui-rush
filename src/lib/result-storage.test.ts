@@ -93,6 +93,13 @@ describe("結果の受け渡し", () => {
     expect(parseStoredResult(raw)?.mode).toBe("timeattack");
   });
 
+  it("UIパーツ探しの実測フラグを保存し、旧結果と区別する", () => {
+    const current = parseStoredResult(serializeResult({ ...base, mode: "spotlight", timingRecorded: true }));
+    expect(current?.timingRecorded).toBe(true);
+    const legacy = parseStoredResult(JSON.stringify({ ...base, mode: "spotlight", version: 1 }));
+    expect(legacy?.timingRecorded).toBe(false);
+  });
+
   it("出題数が0以下ならnull", () => {
     expect(parseStoredResult(serializeResult({ ...base, questionCount: 0 }))).toBeNull();
   });

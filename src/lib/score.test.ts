@@ -6,12 +6,15 @@ import {
   SPEED_BONUS_MAX,
   comboBonus,
   currentStreak,
+  elapsedMsForAnswer,
+  formatSeconds,
   gradeFor,
   maxStreak,
   potentialScore,
   scoreForAnswer,
   speedBonus,
   summarizeScore,
+  summarizeTiming,
 } from "@/lib/score";
 import type { AnswerRecord } from "@/lib/quiz";
 
@@ -268,5 +271,89 @@ describe("gradeFor", () => {
   it("出題数が0ならD", () => {
     expect(gradeFor(0, 0)).toBe("D");
     expect(gradeFor(100, 0)).toBe("D");
+  });
+});
+
+describe("elapsedMsForAnswer", () => {
+  it("残り時間から経過時間を逆算する", () => {
+    expect(elapsedMsForAnswer(5000, 5000)).toBe(0);
+    expect(elapsedMsForAnswer(0, 5000)).toBe(5000);
+    expect(elapsedMsForAnswer(2000, 5000)).toBe(3000);
+  });
+
+  it("範囲外の値は制限時間に丸める", () => {
+    expect(elapsedMsForAnswer(-100, 5000)).toBe(5000);
+    expect(elapsedMsForAnswer(9999, 5000)).toBe(0);
+  });
+
+  it("壊れた入力でも例外を投げない", () => {
+    expect(elapsedMsForAnswer(Number.NaN, 5000)).toBe(5000);
+    expect(elapsedMsForAnswer(1000, 0)).toBe(0);
+    expect(elapsedMsForAnswer(1000, -1)).toBe(0);
+    expect(elapsedMsForAnswer(1000, Number.NaN)).toBe(0);
+  });
+});
+
+describe("summarizeTiming", () => {
+  it("正解した問題だけで平均・最速・最遅を出す", () => {
+    const answers = [
+      answer("correct", 4000), // 1000ms
+      answer("correct", 2000), // 3000ms
+      answer("incorrect", 1000), // 4000ms（対象外）
+      answer("timeout", 0), // 5000ms（対象外）
+    ];
+    const stats = summarizeTiming(answers, LIMIT_MS);
+    expect(stats.correctCount).toBe(2);
+    expect(stats.averageMs).toBe(2000);
+    expect(stats.fastestMs).toBe(1000);
+    expect(stats.slowestMs).toBe(3000);
+  });
+
+  it("全問の平均は誤答・時間切れも含める", () => {
+    const answers = [
+      answer("correct", 4000), // 1000ms
+      answer("incorrect", 1000), // 4000ms
+      answer("timeout", 0), // 5000ms
+    ];
+    const stats = summarizeTiming(answers, LIMIT_MS);
+    expect(stats.averageAllMs).toBe(Math.round((1000 + 4000 + 5000) / 3));
+  });
+
+  it("正解が無ければ平均・最速・最遅は null", () => {
+    const stats = summarizeTiming([answer("incorrect", 1000)], LIMIT_MS);
+    expect(stats.averageMs).toBeNull();
+    expect(stats.fastestMs).toBeNull();
+    expect(stats.slowestMs).toBeNull();
+    expect(stats.correctCount).toBe(0);
+  });
+
+  it("回答が無ければすべて null", () => {
+    const stats = summarizeTiming([], LIMIT_MS);
+    expect(stats.averageMs).toBeNull();
+    expect(stats.averageAllMs).toBeNull();
+    expect(stats.correctCount).toBe(0);
+  });
+
+  it("速く押した誤答は平均を良くしない", () => {
+    // 正解1問（3000ms）に、速い誤答（100ms）を混ぜても平均は3000msのまま。
+    const answers = [answer("correct", 2000), answer("incorrect", 4900)];
+    expect(summarizeTiming(answers, LIMIT_MS).averageMs).toBe(3000);
+  });
+});
+
+describe("formatSeconds", () => {
+  it("ミリ秒を秒の文字列にする", () => {
+    expect(formatSeconds(0)).toBe("0.00");
+    expect(formatSeconds(1234)).toBe("1.23");
+    expect(formatSeconds(5000)).toBe("5.00");
+  });
+
+  it("未計測はダッシュ", () => {
+    expect(formatSeconds(null)).toBe("—");
+    expect(formatSeconds(Number.NaN)).toBe("—");
+  });
+
+  it("負の値は0として扱う", () => {
+    expect(formatSeconds(-500)).toBe("0.00");
   });
 });

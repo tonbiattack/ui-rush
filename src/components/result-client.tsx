@@ -15,7 +15,14 @@ import {
   scoreKey,
   useBestScores,
 } from "@/lib/use-best-scores";
-import { gradeFor, summarizeScore, type Grade } from "@/lib/score";
+import {
+  elapsedMsForAnswer,
+  formatSeconds,
+  gradeFor,
+  summarizeScore,
+  summarizeTiming,
+  type Grade,
+} from "@/lib/score";
 
 interface WeakItem {
   question: Question;
@@ -28,6 +35,8 @@ function buildResult(stored: StoredResult): {
   weak: WeakItem[];
   score: number;
   maxCombo: number;
+  averageMs: number | null;
+  fastestMs: number | null;
 } {
   // タイムアタックは同じ問題を繰り返すため、出題数ではなく回答数を分母にする。
   const total =
@@ -35,9 +44,18 @@ function buildResult(stored: StoredResult): {
   const summary = summarizeAnswers(stored.answers, total);
 
   // 保存済みの得点があればそれを使う。旧データは回答列から計算し直す。
-  const computed = summarizeScore(stored.answers, stored.timeLimitSec * 1000);
+  const limitMs = stored.timeLimitSec * 1000;
+  const computed = summarizeScore(stored.answers, limitMs);
   const score = stored.score ?? computed.total;
   const maxCombo = stored.maxCombo ?? computed.maxCombo;
+
+  // 旧UIパーツ探しの結果は残り時間が常に0で、解答時間を復元できない。
+  const computedTiming =
+    stored.mode === "spotlight" && !stored.timingRecorded
+      ? null
+      : summarizeTiming(stored.answers, limitMs);
+  const averageMs = computedTiming?.averageMs ?? null;
+  const fastestMs = computedTiming?.fastestMs ?? null;
 
   const weak: WeakItem[] = [];
   for (const answer of stored.answers) {
@@ -55,7 +73,7 @@ function buildResult(stored: StoredResult): {
     });
   }
 
-  return { summary, weak, score, maxCombo };
+  return { summary, weak, score, maxCombo, averageMs, fastestMs };
 }
 
 /** 評価の意味。Sだけを特別扱いせず、次に何をすれば上がるかを添える。 */
@@ -133,7 +151,7 @@ export function ResultClient() {
     );
   }
 
-  const { summary, weak, score, maxCombo } = data;
+  const { summary, weak, score, maxCombo, averageMs, fastestMs } = data;
   const retryMode: QuizMode =
     stored.mode === "normal" || stored.mode === "spaced" ? "normal" : stored.mode;
   const retryHref = `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=${retryMode}&reveal=${stored.revealMode}`;
@@ -145,6 +163,7 @@ export function ResultClient() {
   const bestScore = bestScoreFor(best, bestKey);
   // 自己ベストとの差。更新した直後は bestScore が今回の得点になっている。
   const gapToBest = bestScore - score;
+  const timingAvailable = stored.mode !== "spotlight" || stored.timingRecorded;
 
   return (
     <main className="flex flex-1 flex-col">
@@ -169,9 +188,6 @@ export function ResultClient() {
         {stored.mode === "timeattack" && (
           <p className="mt-1 text-[11px] text-muted">
             {bestUpdated ? "自己ベストを更新しました。" : "自己ベストは更新されませんでした。"}
-            {typeof stored.elapsedMs === "number" &&
-              summary.answered > 0 &&
-              ` 平均 ${(Math.min(stored.elapsedMs, 60_000) / 1000 / summary.answered).toFixed(1)}秒／問`}
           </p>
         )}
 
@@ -200,6 +216,26 @@ export function ResultClient() {
             <p className="instrument text-4xl font-semibold leading-none">
               {maxCombo}
               <span className="ml-1 text-xs font-medium text-muted">問</span>
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted">正解の平均時間</p>
+            <p
+              data-testid="final-average-seconds"
+              className="instrument text-4xl font-semibold leading-none"
+            >
+              {formatSeconds(averageMs)}
+              {averageMs !== null && <span className="ml-1 text-xs font-medium text-muted">秒</span>}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted">正解の最速時間</p>
+            <p
+              data-testid="final-fastest-seconds"
+              className="instrument text-4xl font-semibold leading-none"
+            >
+              {formatSeconds(fastestMs)}
+              {fastestMs !== null && <span className="ml-1 text-xs font-medium text-muted">秒</span>}
             </p>
           </div>
           <div className="min-w-[12rem] flex-1">
@@ -253,6 +289,35 @@ export function ResultClient() {
           </div>
         ))}
       </dl>
+
+      <section aria-label="問題ごとの解答時間" className="mt-6">
+        <details className="border-y border-rule">
+          <summary className="focus-ring cursor-pointer py-3 text-sm font-bold">
+            問題ごとの解答時間（{stored.answers.length}問）
+          </summary>
+          <p className="pb-2 text-xs text-muted">
+            解答時間は問題の表示から回答までです。平均と最速は正解した問題だけで計算します。
+          </p>
+          <ol className="divide-y divide-rule">
+            {stored.answers.map((item, index) => {
+              const term = getQuestion(item.questionId);
+              const elapsed = timingAvailable
+                ? elapsedMsForAnswer(item.remainingMs, stored.timeLimitSec * 1000)
+                : null;
+              return (
+                <li key={`${item.questionId}-${index}`} className="flex items-baseline justify-between gap-3 py-2 text-sm">
+                  <span><span className="instrument mr-2 text-xs text-muted">{index + 1}</span>{term?.nameJa ?? item.questionId}</span>
+                  <span className="shrink-0 text-xs text-muted">
+                    {item.outcome === "correct" ? "正解" : item.outcome === "timeout" ? "時間切れ" : "不正解"}
+                    <span className="instrument ml-2 font-semibold text-ink">{formatSeconds(elapsed)}{elapsed !== null ? "秒" : ""}</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+          {!timingAvailable && <p className="pb-2 text-xs text-muted">この結果には解答時間が記録されていません。</p>}
+        </details>
+      </section>
 
       <section aria-label="間違えた用語" className="mt-6">
         <div className="flex items-baseline justify-between gap-2 border-b border-ink pb-1">

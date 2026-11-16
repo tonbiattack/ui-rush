@@ -159,6 +159,18 @@ describe("逆引き・キーボード・タイムアタックのセッション"
     expect(state.index).toBe(0);
   });
 
+  it("タイムアタックはセッション締切以降の回答を記録しない", () => {
+    const quiz = createTimeAttackSession({});
+    const first = quiz.questions[0];
+    const state = { ...startQuiz(quiz, 0), deadline: TIME_ATTACK_MS + 5000 };
+    const beforeDeadline = submitAnswer(state, first.questionId, TIME_ATTACK_MS - 1);
+    expect(beforeDeadline.answers).toHaveLength(1);
+    const atDeadline = submitAnswer(state, first.questionId, TIME_ATTACK_MS);
+    expect(atDeadline.phase).toBe("finished");
+    expect(atDeadline.answers).toHaveLength(0);
+    expect(submitAnswer(state, first.questionId, TIME_ATTACK_MS + 1).phase).toBe("finished");
+  });
+
   it("タイムアタックは終了時刻直前の回答を二重採点しない", () => {
     const quiz = createTimeAttackSession({});
     const now = 0;

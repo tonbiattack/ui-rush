@@ -488,6 +488,10 @@ export function submitAnswer(state: QuizState, choiceId: string, now: number): Q
     return state;
   }
 
+  // セッション全体の締切が先に来た場合、タイマー更新前の入力も受け付けない。
+  if (state.sessionDeadline !== null && now >= state.sessionDeadline) {
+    return { ...state, phase: "finished", revealDeadline: null };
+  }
   if (now >= state.deadline) {
     return recordTimeout(state, now);
   }

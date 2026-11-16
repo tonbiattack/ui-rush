@@ -154,3 +154,74 @@ export function gradeFor(accuracy: number, total: number): Grade {
   }
   return "D";
 }
+
+/**
+ * 1問にかかった時間（ミリ秒）。
+ * 残り時間から逆算するので、保存済みの回答列だけで求まる。
+ * 時間切れは制限時間ちょうど、壊れた値は制限時間に丸める。
+ */
+export function elapsedMsForAnswer(remainingMs: number, limitMs: number): number {
+  if (!Number.isFinite(limitMs) || limitMs <= 0) {
+    return 0;
+  }
+  if (!Number.isFinite(remainingMs)) {
+    return limitMs;
+  }
+  return Math.min(Math.max(limitMs - remainingMs, 0), limitMs);
+}
+
+export interface TimingStats {
+  /** 正解した問題の平均解答時間（ミリ秒）。正解が無ければ null。 */
+  averageMs: number | null;
+  /** 正解した問題のうち最速の解答時間（ミリ秒）。正解が無ければ null。 */
+  fastestMs: number | null;
+  /** 正解した問題のうち最遅の解答時間（ミリ秒）。正解が無ければ null。 */
+  slowestMs: number | null;
+  /** 正解した問題数。平均の分母。 */
+  correctCount: number;
+  /** 全問の平均解答時間（ミリ秒）。時間切れは制限時間として数える。 */
+  averageAllMs: number | null;
+}
+
+/**
+ * 解答時間の統計。**正解した問題だけ**を平均・最速・最遅の対象にする。
+ * 誤答や時間切れを混ぜると「速く押しただけ」の記録が良く見えてしまうため。
+ */
+export function summarizeTiming(
+  answers: readonly AnswerRecord[],
+  limitMs: number,
+): TimingStats {
+  const correct = answers.filter((answer) => answer.outcome === "correct");
+  const all = answers.map((answer) => elapsedMsForAnswer(answer.remainingMs, limitMs));
+
+  if (correct.length === 0) {
+    return {
+      averageMs: null,
+      fastestMs: null,
+      slowestMs: null,
+      correctCount: 0,
+      averageAllMs: all.length === 0 ? null : Math.round(average(all)),
+    };
+  }
+
+  const times = correct.map((answer) => elapsedMsForAnswer(answer.remainingMs, limitMs));
+  return {
+    averageMs: Math.round(average(times)),
+    fastestMs: Math.min(...times),
+    slowestMs: Math.max(...times),
+    correctCount: correct.length,
+    averageAllMs: all.length === 0 ? null : Math.round(average(all)),
+  };
+}
+
+function average(values: readonly number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+/** ミリ秒を「1.23」のような秒の文字列にする。小数2桁まで。 */
+export function formatSeconds(ms: number | null): string {
+  if (ms === null || !Number.isFinite(ms)) {
+    return "—";
+  }
+  return (Math.max(0, ms) / 1000).toFixed(2);
+}
