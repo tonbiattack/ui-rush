@@ -8,7 +8,14 @@ import { loadResult, type StoredResult } from "@/lib/result-storage";
 import { summarizeAnswers, type QuizMode, type QuizResult } from "@/lib/quiz";
 import { Figure, Masthead } from "@/components/ui-kit";
 import { InstructionExample } from "@/components/term-detail";
-import { recordTimeAttack } from "@/lib/use-best-scores";
+import {
+  bestScoreFor,
+  recordScore,
+  recordTimeAttack,
+  scoreKey,
+  useBestScores,
+} from "@/lib/use-best-scores";
+import { gradeFor, summarizeScore, type Grade } from "@/lib/score";
 
 interface WeakItem {
   question: Question;
@@ -19,11 +26,18 @@ interface WeakItem {
 function buildResult(stored: StoredResult): {
   summary: QuizResult;
   weak: WeakItem[];
+  score: number;
+  maxCombo: number;
 } {
   // タイムアタックは同じ問題を繰り返すため、出題数ではなく回答数を分母にする。
   const total =
     stored.mode === "timeattack" ? stored.answers.length : stored.questionIds.length;
   const summary = summarizeAnswers(stored.answers, total);
+
+  // 保存済みの得点があればそれを使う。旧データは回答列から計算し直す。
+  const computed = summarizeScore(stored.answers, stored.timeLimitSec * 1000);
+  const score = stored.score ?? computed.total;
+  const maxCombo = stored.maxCombo ?? computed.maxCombo;
 
   const weak: WeakItem[] = [];
   for (const answer of stored.answers) {
@@ -41,7 +55,21 @@ function buildResult(stored: StoredResult): {
     });
   }
 
-  return { summary, weak };
+  return { summary, weak, score, maxCombo };
+}
+
+/** 評価の意味。Sだけを特別扱いせず、次に何をすれば上がるかを添える。 */
+const GRADE_NOTES: Record<Grade, string> = {
+  S: "正答率90%以上。この条件では最上位です。",
+  A: "正答率75%以上。あと少しで最上位です。",
+  B: "正答率60%以上。苦手な分類を復習すると上がります。",
+  C: "正答率40%以上。まずは正答率を上げてください。",
+  D: "正答率40%未満。用語図鑑で確認してから再挑戦すると上がります。",
+};
+
+/** 得点は4桁までなので、桁区切りだけ自前で入れる（ロケール依存を避ける）。 */
+function formatPoints(value: number): string {
+  return String(Math.max(0, Math.round(value))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 const MODE_LABELS: Record<QuizMode, string> = {
@@ -59,6 +87,7 @@ export function ResultClient() {
   const router = useRouter();
   // このコンポーネントはClientOnly配下でのみ描画されるため、初期化時に直接読み取れる。
   const [stored] = useState<StoredResult | null>(() => loadResult());
+  const best = useBestScores();
   // タイムアタックは自己ベストを更新する。表示のため、初回に一度だけ判定する。
   const [bestUpdated] = useState(() => {
     const result = loadResult();
@@ -67,6 +96,22 @@ export function ResultClient() {
     }
     const correct = result.answers.filter((answer) => answer.outcome === "correct").length;
     return recordTimeAttack(correct);
+  });
+  // 得点の自己ベストも条件ごとに更新する。更新したかどうかを結果画面に出す。
+  const [scoreBestUpdated] = useState(() => {
+    const result = loadResult();
+    if (!result) {
+      return false;
+    }
+    const computed = summarizeScore(result.answers, result.timeLimitSec * 1000);
+    const score = result.score ?? computed.total;
+    if (score <= 0) {
+      return false;
+    }
+    return recordScore(
+      scoreKey(result.mode, result.questionCount, result.timeLimitSec),
+      score,
+    );
   });
 
   const data = useMemo(() => (stored ? buildResult(stored) : null), [stored]);
@@ -88,13 +133,18 @@ export function ResultClient() {
     );
   }
 
-  const { summary, weak } = data;
+  const { summary, weak, score, maxCombo } = data;
   const retryMode: QuizMode =
     stored.mode === "normal" || stored.mode === "spaced" ? "normal" : stored.mode;
   const retryHref = `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=${retryMode}&reveal=${stored.revealMode}`;
   const reviewIds = Array.from(new Set(weak.map((item) => item.question.id)));
   const reviewHref = `/quiz?count=${stored.questionCount}&time=${stored.timeLimitSec}&mode=review&reveal=${stored.revealMode}&ids=${reviewIds.join(",")}`;
   const wrongRatio = summary.total === 0 ? 0 : summary.correct / summary.total;
+  const grade = gradeFor(summary.accuracy, summary.total);
+  const bestKey = scoreKey(stored.mode, stored.questionCount, stored.timeLimitSec);
+  const bestScore = bestScoreFor(best, bestKey);
+  // 自己ベストとの差。更新した直後は bestScore が今回の得点になっている。
+  const gapToBest = bestScore - score;
 
   return (
     <main className="flex flex-1 flex-col">
@@ -124,6 +174,51 @@ export function ResultClient() {
               ` 平均 ${(Math.min(stored.elapsedMs, 60_000) / 1000 / summary.answered).toFixed(1)}秒／問`}
           </p>
         )}
+
+        {/* 得点と評価。正答数だけでなく、速さと連続正解の結果も並べる。 */}
+        <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-2 border-t border-rule pt-3">
+          <div>
+            <p className="text-[10px] text-muted">得点</p>
+            <p
+              data-testid="final-score"
+              className="instrument text-4xl font-semibold leading-none"
+            >
+              {formatPoints(score)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted">評価</p>
+            <p
+              data-testid="final-grade"
+              className="instrument text-4xl font-semibold leading-none"
+            >
+              {grade}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted">最大連続正解</p>
+            <p className="instrument text-4xl font-semibold leading-none">
+              {maxCombo}
+              <span className="ml-1 text-xs font-medium text-muted">問</span>
+            </p>
+          </div>
+          <div className="min-w-[12rem] flex-1">
+            <p className="text-[10px] text-muted">この条件の自己ベスト</p>
+            <p className="instrument text-sm font-semibold">
+              {formatPoints(bestScore)}
+              {scoreBestUpdated ? (
+                <span className="ml-2 text-[11px] font-bold text-correct">更新</span>
+              ) : gapToBest > 0 ? (
+                <span className="ml-2 text-[11px] font-medium text-muted">
+                  あと {formatPoints(gapToBest)} 点
+                </span>
+              ) : null}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-snug text-muted">
+              {GRADE_NOTES[grade]}
+            </p>
+          </div>
+        </div>
 
         {/* 正誤の比率を1本の帯で示す。色だけに頼らず、下の数値でも確認できる。 */}
         <div

@@ -3,12 +3,20 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { SpecimenFrame } from "@/components/ui-kit";
+import { SpecimenFrame, Stamp } from "@/components/ui-kit";
 import { UiDemo } from "@/components/ui-demos";
 import { matchesQuestion, useSpeech } from "@/lib/use-speech";
 import { getHistorySnapshot, useHistory } from "@/lib/use-history";
 import { weakQuestionIds } from "@/lib/history";
 import { saveResult } from "@/lib/result-storage";
+import {
+  COMBO_BONUS_MAX,
+  COMBO_STEP,
+  currentStreak,
+  potentialScore,
+  scoreForAnswer,
+  summarizeScore,
+} from "@/lib/score";
 import {
   DistinctionNote,
   InstructionExample,
@@ -57,6 +65,11 @@ const DemoPanel = memo(function DemoPanel({ demoType }: { demoType: string }) {
 
 const CHOICE_KEYS = ["1", "2", "3", "4"];
 const TICK_INTERVAL_MS = 100;
+
+/** 得点は4桁までなので、桁区切りだけ自前で入れる（ロケール依存を避ける）。 */
+function formatPoints(value: number): string {
+  return String(Math.max(0, Math.round(value))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
 
 function timerTone(ratio: number): string {
   if (ratio > 0.5) {
@@ -219,6 +232,7 @@ export function QuizClient({
       return;
     }
     finishedRef.current = true;
+    const finalScore = summarizeScore(state.answers, timeLimitMs(session.timeLimitSec));
     saveResult({
       mode: session.mode,
       timeLimitSec: session.timeLimitSec,
@@ -227,6 +241,8 @@ export function QuizClient({
       answers: state.answers,
       questionIds: session.questions.map((question) => question.questionId),
       elapsedMs: performance.now() - state.startedAt,
+      score: finalScore.total,
+      maxCombo: finalScore.maxCombo,
     });
     router.replace("/result");
   }, [state, session, router]);
@@ -400,6 +416,27 @@ export function QuizClient({
   const answeredCorrectly = answer?.outcome === "correct";
   const timedOut = answer?.outcome === "timeout";
   const selected = answer?.selectedChoiceId ?? null;
+
+  // 得点。出題中は「いま正解したら何点か」をライブで見せ、時間とともに減らす。
+  // 回答後は確定した内訳を出す。連続正解は「この回答より前」の連続数で数える。
+  const settledAnswers = answer ? state.answers.slice(0, -1) : state.answers;
+  const streakBefore = currentStreak(settledAnswers);
+  const earned = answer
+    ? scoreForAnswer({
+        outcome: answer.outcome,
+        remainingMs: answer.remainingMs,
+        limitMs,
+        streakBefore,
+      })
+    : null;
+  const potential = answering
+    ? potentialScore(liveRemaining, limitMs, streakBefore)
+    : null;
+  // 得点は回答した瞬間に増える（数字が跳ねるのを見せる）。
+  const scoreBefore = summarizeScore(settledAnswers, limitMs).total;
+  const runningScore = scoreBefore + (earned?.total ?? 0);
+  const comboActive = streakBefore > 0;
+  const comboAtMax = streakBefore * COMBO_STEP >= COMBO_BONUS_MAX;
   const autoRevealRemainingMs =
     showingExplanation && state.revealDeadline !== null
       ? Math.max(0, state.revealDeadline - now)
@@ -489,46 +526,115 @@ export function QuizClient({
             </p>
           </div>
         </div>
+
+        {/* 得点レール: 速く答えるほど増える点と、連続正解の伸びを並べる。 */}
+        <dl className="mt-2 grid grid-cols-3 divide-x divide-rule border-t border-rule pt-2">
+          <div className="pr-3">
+            <dt className="text-[10px] text-muted">得点</dt>
+            <dd
+              data-testid="running-score"
+              className="instrument mt-0.5 text-lg font-semibold leading-none"
+            >
+              {formatPoints(runningScore)}
+            </dd>
+          </div>
+          <div className="px-3">
+            <dt className="text-[10px] text-muted">
+              {showingExplanation ? "この1問" : "正解なら"}
+            </dt>
+            <dd
+              data-testid="question-score"
+              className={`instrument mt-0.5 text-lg font-semibold leading-none ${
+                earned
+                  ? earned.total > 0
+                    ? "text-correct"
+                    : "text-wrong"
+                  : "text-ink"
+              }`}
+            >
+              {earned
+                ? earned.total > 0
+                  ? `+${formatPoints(earned.total)}`
+                  : "0"
+                : formatPoints(potential?.total ?? 0)}
+            </dd>
+          </div>
+          <div className="pl-3">
+            <dt className="text-[10px] text-muted">連続正解</dt>
+            <dd className="mt-0.5 flex items-baseline gap-1">
+              <span
+                data-testid="combo-count"
+                className={`instrument text-lg font-semibold leading-none ${
+                  comboActive ? "text-correct" : "text-muted"
+                }`}
+              >
+                {streakBefore}
+              </span>
+              <span className="text-[10px] text-muted">
+                {comboAtMax ? "上限" : `+${COMBO_STEP}点/問`}
+              </span>
+            </dd>
+          </div>
+        </dl>
       </header>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         {/* 標本ステージ: 画面で唯一明るい物体。 */}
         <section aria-label="UIデモ">
-          <SpecimenFrame
-            label={promptText ? "要件" : "操作できるデモ"}
-            footer={
-              <p className="text-[11px] text-muted">
-                {session.mode === "confusable"
-                  ? "どちらの名前か、見分けてください"
-                  : session.mode === "reverse" || session.mode === "spaced"
-                    ? "この要件に合うUIはどれか"
-                    : session.mode === "keyboard"
-                      ? "この操作に使うキーはどれか"
-                      : "このUIの名前はどれか"}
-              </p>
-            }
-          >
-            {promptText ? (
-              <div className="flex min-h-56 flex-col justify-center gap-3 sm:min-h-64">
-                <p className="text-base font-bold leading-relaxed sm:text-lg">
-                  {promptText}
-                </p>
-                {answer ? (
-                  <div className="border border-rule bg-surface p-2">
-                    <DemoPanel key={question.questionId} demoType={questionData.demoType} />
+          {/* 誤答のときだけ枠ごと小さく揺らす。判子とは別の要素にして transform の競合を避ける。
+              key は付けない。付けるとデモが作り直され、操作していた状態が消える。 */}
+          <div className={answer && !answeredCorrectly ? "shake-sm" : undefined}>
+            <div className="relative">
+              <SpecimenFrame
+                label={promptText ? "要件" : "操作できるデモ"}
+                footer={
+                  <p className="text-[11px] text-muted">
+                    {session.mode === "confusable"
+                      ? "どちらの名前か、見分けてください"
+                      : session.mode === "reverse" || session.mode === "spaced"
+                        ? "この要件に合うUIはどれか"
+                        : session.mode === "keyboard"
+                          ? "この操作に使うキーはどれか"
+                          : "このUIの名前はどれか"}
+                  </p>
+                }
+              >
+                {promptText ? (
+                  <div className="flex min-h-56 flex-col justify-center gap-3 sm:min-h-64">
+                    <p className="text-base font-bold leading-relaxed sm:text-lg">
+                      {promptText}
+                    </p>
+                    {answer ? (
+                      <div className="border border-rule bg-surface p-2">
+                        <DemoPanel key={question.questionId} demoType={questionData.demoType} />
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted">
+                        答え合わせのあとに、該当するUIのデモが出ます。
+                      </p>
+                    )}
                   </div>
                 ) : (
-                  <p className="text-[11px] text-muted">
-                    答え合わせのあとに、該当するUIのデモが出ます。
-                  </p>
+                  <div className="flex min-h-56 flex-col justify-center sm:min-h-64">
+                    <DemoPanel key={question.questionId} demoType={questionData.demoType} />
+                  </div>
                 )}
-              </div>
-            ) : (
-              <div className="flex min-h-56 flex-col justify-center sm:min-h-64">
-                <DemoPanel key={question.questionId} demoType={questionData.demoType} />
-              </div>
-            )}
-          </SpecimenFrame>
+              </SpecimenFrame>
+
+              {/* 判定の判子。標本の隅に押し、当たった手応えを残す。 */}
+              {answer && (
+                <div className="pointer-events-none absolute right-2 top-8 sm:right-4">
+                  <Stamp
+                    key={`stamp-${state.index}`}
+                    tone={answeredCorrectly ? "correct" : timedOut ? "timeout" : "wrong"}
+                    className="text-base"
+                  >
+                    {answeredCorrectly ? "正解" : timedOut ? "時間切れ" : "不正解"}
+                  </Stamp>
+                </div>
+              )}
+            </div>
+          </div>
         </section>
 
         {/* 回答ブロック */}
@@ -645,6 +751,55 @@ export function QuizClient({
           <p className="mt-1 max-w-[42rem] text-xs leading-relaxed text-ink-soft">
             {questionData.description}
           </p>
+
+          {/* 得点の内訳。なぜその点数になったかを、次の判断材料として見せる。 */}
+          {earned && (
+            <dl
+              data-testid="score-breakdown"
+              className="mt-2 flex max-w-[42rem] flex-wrap items-baseline gap-x-4 gap-y-1 border-y border-rule py-1.5 text-[11px]"
+            >
+              <div className="flex items-baseline gap-1">
+                <dt className="text-muted">基礎</dt>
+                <dd className="instrument font-semibold">{earned.base}</dd>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <dt className="text-muted">速さ</dt>
+                <dd
+                  className={`instrument font-semibold ${
+                    earned.speed > 0 ? "text-correct" : "text-muted"
+                  }`}
+                >
+                  +{earned.speed}
+                </dd>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <dt className="text-muted">連続</dt>
+                <dd
+                  className={`instrument font-semibold ${
+                    earned.combo > 0 ? "text-correct" : "text-muted"
+                  }`}
+                >
+                  +{earned.combo}
+                </dd>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <dt className="text-muted">合計</dt>
+                <dd
+                  className={`instrument text-sm font-semibold ${
+                    earned.total > 0 ? "text-correct" : "text-wrong"
+                  }`}
+                >
+                  {earned.total > 0 ? `+${formatPoints(earned.total)}` : "0"}
+                </dd>
+              </div>
+              {earned.total > 0 && earned.speed < 50 && (
+                <p className="text-muted">次はもっと早く答えると速さの点が増えます</p>
+              )}
+              {earned.total > 0 && earned.combo >= COMBO_BONUS_MAX && (
+                <p className="text-correct">連続正解のボーナスは上限です</p>
+              )}
+            </dl>
+          )}
 
           <div className="mt-3 flex max-w-[42rem] flex-wrap gap-2 [&>*]:min-w-[16rem] [&>*]:flex-1">
             <InstructionExample question={questionData} />

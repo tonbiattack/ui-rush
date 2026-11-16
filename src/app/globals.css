@@ -67,3 +67,49 @@ body {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
+
+/* 判子が押される動き。1フレーム目で大きく、すぐ収束させる（ヒットストップ相当）。 */
+@keyframes stamp-in {
+  0%   { opacity: 0; transform: rotate(-7deg) scale(1.75); }
+  55%  { opacity: 1; transform: rotate(-7deg) scale(0.93); }
+  100% { opacity: 1; transform: rotate(-7deg) scale(1); }
+}
+
+/* 誤答のときだけ、ごく小さく揺らす。正解の手応えを引き立てる反対の要素。 */
+@keyframes shake-sm {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-2px); }
+  50%      { transform: translateX(2px); }
+  75%      { transform: translateX(-1px); }
+}
+
+/* 判子の土台。位置は呼び出し側が決める。 */
+@utility stamp {
+  animation: stamp-in 180ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+/* 判定の色は既存トークンだけを使い、紙にインクが乗った見え方にする。 */
+@utility stamp-correct {
+  color: var(--color-correct);
+  border: 2px solid var(--color-correct);
+  background-color: color-mix(in srgb, var(--color-correct) 10%, var(--color-paper));
+}
+
+@utility stamp-wrong {
+  color: var(--color-wrong);
+  border: 2px solid var(--color-wrong);
+  background-color: color-mix(in srgb, var(--color-wrong) 10%, var(--color-paper));
+}
+
+@utility stamp-timeout {
+  color: var(--color-timeout);
+  border: 2px solid var(--color-timeout);
+  background-color: color-mix(in srgb, var(--color-timeout) 10%, var(--color-paper));
+}
+
+/* 誤答時の小さな揺れ。 */
+@utility shake-sm {
+  animation: shake-sm 140ms ease-in-out both;
+}

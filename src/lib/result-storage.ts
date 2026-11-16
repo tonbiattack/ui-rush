@@ -24,6 +24,10 @@ export interface StoredResult {
   questionIds: string[];
   /** セッションの実測時間（ミリ秒）。タイムアタックの平均回答時間に使う。 */
   elapsedMs?: number;
+  /** セッションの合計得点。旧バージョンの保存データには無いので省略可。 */
+  score?: number;
+  /** セッション中の最長連続正解数。旧バージョンの保存データには無いので省略可。 */
+  maxCombo?: number;
   finishedAt: string;
 }
 
@@ -92,6 +96,15 @@ export function parseStoredResult(raw: string | null): StoredResult | null {
     elapsedMs:
       typeof candidate.elapsedMs === "number" && Number.isFinite(candidate.elapsedMs)
         ? candidate.elapsedMs
+        : undefined,
+    // 旧バージョンの保存データには無いので、未記録として扱う。
+    score:
+      typeof candidate.score === "number" && Number.isFinite(candidate.score)
+        ? Math.max(0, Math.round(candidate.score))
+        : undefined,
+    maxCombo:
+      typeof candidate.maxCombo === "number" && Number.isFinite(candidate.maxCombo)
+        ? Math.max(0, Math.floor(candidate.maxCombo))
         : undefined,
     finishedAt: typeof candidate.finishedAt === "string" ? candidate.finishedAt : "",
   };

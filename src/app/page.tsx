@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useHistory } from "@/lib/use-history";
 import { useSettings, saveSettings } from "@/lib/use-settings";
-import { useBestScores } from "@/lib/use-best-scores";
+import { bestScoreFor, scoreKey, useBestScores } from "@/lib/use-best-scores";
 import { dueCount, totalAnswered, weakQuestionIds, type History } from "@/lib/history";
 import { CONFUSABLE_PAIRS, KEYBOARD_QUESTIONS, QUESTIONS } from "@/lib/questions";
 import {
@@ -16,6 +16,7 @@ import {
   type RevealMode,
   type TimeLimitSec,
 } from "@/lib/quiz";
+import { BASE_POINTS, COMBO_BONUS_MAX, COMBO_STEP, SPEED_BONUS_MAX } from "@/lib/score";
 import { ChoiceTile, Figure, Masthead, SectionHead, SpecRow } from "@/components/ui-kit";
 
 const cx = (...values: Array<string | false | null | undefined>) =>
@@ -138,6 +139,7 @@ export default function HomePage() {
   const weakCount = useMemo(() => weakQuestionIds(history).length, [history]);
   const reviewDue = useMemo(() => dueCount(history), [history]);
   const best = useBestScores();
+  const normalBest = bestScoreFor(best, scoreKey("normal", questionCount, timeLimitSec));
 
   const save = (next: { time?: TimeLimitSec; count?: QuestionCount; reveal?: RevealMode }) =>
     saveSettings({
@@ -237,6 +239,43 @@ export default function HomePage() {
         </SpecRow>
       </section>
 
+      <section aria-label="得点の決まり" className="mt-6">
+        <SectionHead title="得点の決まり" note="早く答えるほど高い" />
+        <dl className="grid grid-cols-3 divide-x divide-rule border-b border-rule">
+          {[
+            {
+              label: "正解",
+              value: BASE_POINTS,
+              unit: "点",
+              note: "1問ごと",
+            },
+            {
+              label: "速さ",
+              value: `+0〜${SPEED_BONUS_MAX}`,
+              unit: "点",
+              note: "残り時間の割合",
+            },
+            {
+              label: "連続正解",
+              value: `+${COMBO_STEP}〜${COMBO_BONUS_MAX}`,
+              unit: "点",
+              note: "1問ごとに加算",
+            },
+          ].map((item) => (
+            <div key={item.label} className="px-3 py-3 first:pl-0">
+              <dt className="text-[11px] text-muted">{item.label}</dt>
+              <dd className="mt-0.5">
+                <Figure value={item.value} unit={item.unit} size="sm" />
+              </dd>
+              <p className="mt-0.5 text-[10px] leading-snug text-muted">{item.note}</p>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-2 max-w-[46ch] text-[11px] leading-relaxed text-muted">
+          誤答と時間切れは0点です。早く答えるほど速さの点が増えますが、誤答すると連続正解が途切れます。
+        </p>
+      </section>
+
       <div className="mt-6 flex flex-col gap-2">
         <button
           type="button"
@@ -246,6 +285,7 @@ export default function HomePage() {
           <span className="text-base font-bold">クイズを始める</span>
           <span className="instrument text-xs text-paper/70">
             {questionCount}問 / {timeLimitSec}秒
+            {normalBest > 0 ? ` / ベスト ${normalBest}点` : ""}
           </span>
         </button>
         <div className="grid gap-2 sm:grid-cols-2">

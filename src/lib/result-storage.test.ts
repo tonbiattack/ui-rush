@@ -96,4 +96,28 @@ describe("結果の受け渡し", () => {
   it("出題数が0以下ならnull", () => {
     expect(parseStoredResult(serializeResult({ ...base, questionCount: 0 }))).toBeNull();
   });
+
+  it("得点と最大連続正解を保存・復元できる", () => {
+    const raw = serializeResult({ ...base, score: 1240, maxCombo: 4 });
+    const parsed = parseStoredResult(raw);
+    expect(parsed?.score).toBe(1240);
+    expect(parsed?.maxCombo).toBe(4);
+  });
+
+  it("得点を持たない旧データは未記録として扱う", () => {
+    const legacy = JSON.stringify({ ...base, version: 1 });
+    const parsed = parseStoredResult(legacy);
+    expect(parsed?.score).toBeUndefined();
+    expect(parsed?.maxCombo).toBeUndefined();
+  });
+
+  it("壊れた得点は未記録として扱い、負の値は0に丸める", () => {
+    expect(
+      parseStoredResult(JSON.stringify({ ...base, version: 1, score: "x", maxCombo: null }))
+        ?.score,
+    ).toBeUndefined();
+    expect(
+      parseStoredResult(JSON.stringify({ ...base, version: 1, score: -50 }))?.score,
+    ).toBe(0);
+  });
 });

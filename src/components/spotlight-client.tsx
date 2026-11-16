@@ -7,6 +7,7 @@ import { getQuestion, type Question } from "@/lib/questions";
 import { saveResult } from "@/lib/result-storage";
 import { useHistory } from "@/lib/use-history";
 import { timeLimitMs, type TimeLimitSec } from "@/lib/quiz";
+import { summarizeScore } from "@/lib/score";
 import { SpecimenFrame } from "@/components/ui-kit";
 import { InstructionExample } from "@/components/term-detail";
 
@@ -222,6 +223,7 @@ export function SpotlightClient({ timeLimitSec }: { timeLimitSec: TimeLimitSec }
       remainingMs: 0,
     }));
     addAnswers(answers);
+    const finalScore = summarizeScore(answers, timeLimitMs(timeLimitSec));
     saveResult({
       mode: "spotlight",
       timeLimitSec,
@@ -230,6 +232,8 @@ export function SpotlightClient({ timeLimitSec }: { timeLimitSec: TimeLimitSec }
       answers,
       questionIds: results.map((result) => result.question.id),
       elapsedMs: results.length * timeLimitMs(timeLimitSec),
+      score: finalScore.total,
+      maxCombo: finalScore.maxCombo,
     });
     router.replace("/result");
   }, [phase, results, addAnswers, router, timeLimitSec]);

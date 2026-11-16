@@ -122,3 +122,38 @@ export function Figure({
     </span>
   );
 }
+
+export type StampTone = "correct" | "wrong" | "timeout";
+
+/**
+ * Tailwind は @utility をソース中のリテラル文字列からしか生成しないため、
+ * `stamp-${tone}` の補間ではなくリテラルで持つ。
+ */
+const STAMP_TONE_CLASS: Record<StampTone, string> = {
+  correct: "stamp-correct",
+  wrong: "stamp-wrong",
+  timeout: "stamp-timeout",
+};
+
+/**
+ * 回答確定を紙に押す判子として見せる。読み上げは呼び出し側の
+ * role="status" が担うため、この要素は aria-hidden にする。
+ */
+export function Stamp({
+  tone,
+  children,
+  className = "",
+}: {
+  tone: StampTone;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`stamp ${STAMP_TONE_CLASS[tone]} pointer-events-none inline-block select-none px-2 py-0.5 text-sm font-bold leading-none ${className}`}
+    >
+      {children}
+    </span>
+  );
+}
