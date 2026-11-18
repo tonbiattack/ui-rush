@@ -9,6 +9,7 @@ import {
   type Question,
 } from "./questions";
 import { sample, shuffle, type Rng } from "./random";
+import { PRACTICAL_CASES, type PracticalCase } from "./practical-cases";
 
 export const TIME_LIMIT_OPTIONS = [3, 5, 8] as const;
 export const DEFAULT_TIME_LIMIT_SEC = 5 as const;
@@ -37,7 +38,8 @@ export type QuizMode =
   | "keyboard"
   | "timeattack"
   | "spaced"
-  | "spotlight";
+  | "spotlight"
+  | "practical";
 /**
  * 正誤と解説を見せたあとの進め方。
  * - manual: タイマーを止めて待機し、ユーザーが「次へ」を押すまで進まない（既定）
@@ -49,6 +51,15 @@ export interface QuizQuestion {
   questionId: string;
   /** 正解を含む4択。並び順は出題時に確定済み。 */
   choices: string[];
+  /**
+   * 実践ケースの出題文。設定されているときは reversePrompt より優先して表示する。
+   * 選択肢は「正解＋そのケース固有の誤答3つ」で、他の問題から寄せない。
+   */
+  casePrompt?: string;
+  /** 実践ケースの正解理由。回答後に表示する。 */
+  caseReason?: string;
+  /** 実践ケースの誤答ごとの理由。choices と同じ並び。 */
+  caseDistractorReasons?: string[];
 }
 
 export interface QuizSession {
@@ -124,7 +135,8 @@ export function isQuizMode(value: unknown): value is QuizMode {
     value === "keyboard" ||
     value === "timeattack" ||
     value === "spaced" ||
-    value === "spotlight"
+    value === "spotlight" ||
+    value === "practical"
   );
 }
 
@@ -280,6 +292,55 @@ export function createReverseSession({
     timeLimitSec,
     revealMode,
     questions: buildSessionQuestions(QUESTIONS, questionCount, rng),
+  };
+}
+
+/**
+ * 実践ケースから1問を作る。
+ * 選択肢は「正解＋そのケース固有の誤答3つ」だけにし、他の問題から寄せない。
+ * 誤答の理由を選択肢の並びに合わせて持たせるので、回答後に全選択肢の理由を出せる。
+ */
+function buildPracticalQuestion(practicalCase: PracticalCase, rng: Rng): QuizQuestion {
+  const ids = [practicalCase.answerId, ...practicalCase.distractorIds];
+  const reasons = [practicalCase.reason, ...practicalCase.distractorReasons];
+
+  // 正解と誤答の対応を保ったまま並べ替える。
+  const order = shuffle(
+    ids.map((_, index) => index),
+    rng,
+  );
+
+  return {
+    questionId: practicalCase.answerId,
+    choices: order.map((index) => ids[index]),
+    casePrompt: practicalCase.prompt,
+    caseReason: practicalCase.reason,
+    caseDistractorReasons: order.map((index) => reasons[index]),
+  };
+}
+
+/**
+ * 実践ケース: 現場で迷いやすいUI選択を、判断の根拠が読み取れる要件文から答える。
+ * 逆引きと同じ4択だが、選択肢と理由をケース固有にする。
+ */
+export function createPracticalSession({
+  questionCount,
+  timeLimitSec,
+  revealMode = "manual",
+  rng = Math.random,
+}: Omit<CreateSessionOptions, "questionIds">): QuizSession {
+  const usable = PRACTICAL_CASES.filter(
+    (item) =>
+      QUESTIONS_BY_ID.has(item.answerId) &&
+      item.distractorIds.every((id) => QUESTIONS_BY_ID.has(id)),
+  );
+  const picked = sample(usable, Math.min(questionCount, usable.length), rng);
+
+  return {
+    mode: "practical",
+    timeLimitSec,
+    revealMode,
+    questions: picked.map((item) => buildPracticalQuestion(item, rng)),
   };
 }
 

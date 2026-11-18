@@ -106,6 +106,210 @@ export const CONFUSABLE_PAIRS: ConfusablePair[] = [
     distinction:
       "スピナーは「待っている」ことだけを示す。プログレスバーは何割終わったかという量を示す。",
   },
+  {
+    a: "combobox",
+    b: "dropdown",
+    distinction:
+      "コンボボックスは入力欄に打ち込んで候補を絞り、値を決める。ドロップダウンは押すと操作の一覧が開き、選ぶとその場で実行される。",
+  },
+  {
+    a: "modal",
+    b: "popover",
+    distinction:
+      "モーダルは背景を覆って操作を遮り、閉じるまで他へ移れない。ポップオーバーは要素のそばに開き、外を押せば閉じられる。",
+  },
+  {
+    a: "tabs",
+    b: "segmentedcontrol",
+    distinction:
+      "タブは表示内容を切り替え、内容が別々に存在する。セグメントコントロールは同じ内容の見せ方や条件を切り替える。",
+  },
+  {
+    a: "drawer",
+    b: "sheet",
+    distinction:
+      "ドロワーは主要なメニューを端から出す。シートは一覧を残したまま詳細を横から出す補助パネルで、幅は狭い。",
+  },
+  {
+    a: "toast",
+    b: "notification",
+    distinction:
+      "トーストは数秒で消え、見返せない。通知センターは通知を溜めて、あとから一覧で確認できる。",
+  },
+  {
+    a: "alert",
+    b: "inlinealert",
+    distinction:
+      "アラートは画面や節の単位でまとめて出す。インラインアラートは関係する入力欄のすぐそばに出す。",
+  },
+  {
+    a: "banner",
+    b: "callout",
+    distinction:
+      "バナーは画面幅いっぱいの帯で、閉じるまで残る告知。コールアウトは本文の中に置く枠付きの補足。",
+  },
+  {
+    a: "tooltip",
+    b: "coachmark",
+    distinction:
+      "ツールチップはカーソルを合わせるたびに出る短い説明。コーチマークは初回だけ対象を指して操作を案内する。",
+  },
+  {
+    a: "popconfirm",
+    b: "modal",
+    distinction:
+      "ポップ確認は押した要素のそばに小さく出て、画面を覆わない。モーダルは背景を覆い、閉じるまで操作を止める。",
+  },
+  {
+    a: "select",
+    b: "multiselect",
+    distinction:
+      "セレクトは値を1つだけ選ぶ。マルチセレクトは複数の値を同時に選べる。",
+  },
+  {
+    a: "checkbox",
+    b: "radio",
+    distinction:
+      "チェックボックスは複数選べ、押すと外せる。ラジオボタンは1つだけ選び、選び直すと他が外れる。",
+  },
+  {
+    a: "textfield",
+    b: "textarea",
+    distinction:
+      "テキストフィールドは1行の入力。テキストエリアは複数行にわたり、長文を入れる。",
+  },
+  {
+    a: "datepicker",
+    b: "rangepicker",
+    distinction:
+      "日付ピッカーは1つの日付を選ぶ。期間選択は始まりと終わりの2点を選んで範囲を決める。",
+  },
+  {
+    a: "spinner",
+    b: "loadingbar",
+    distinction:
+      "スピナーはその場で回り、待っていることを示す。ローディングバーは画面上部の細い帯で、画面を覆わない。",
+  },
+  {
+    a: "skeleton",
+    b: "spinner",
+    distinction:
+      "スケルトンはこれから入る内容の形を先に置く。スピナーは形を出さず、待っていることだけを示す。",
+  },
+  {
+    a: "pagination",
+    b: "loadmore",
+    distinction:
+      "ページネーションは何ページ目かを選んで移動する。もっと見るは末尾から続きを足していく。",
+  },
+  {
+    a: "breadcrumb",
+    b: "anchorlinks",
+    distinction:
+      "パンくずリストは階層のどこにいるかを示し、上位へ戻る。目次リンクは同じページ内の見出しへ飛ぶ。",
+  },
+  {
+    a: "navbar",
+    b: "appbar",
+    distinction:
+      "ナビゲーションバーは主要な行き先を並べる。アプリバーは画面名と戻る・操作を置く上部の帯。",
+  },
+  {
+    a: "sidebar",
+    b: "drawer",
+    distinction:
+      "サイドバーは常に表示され、画面の一部として場所を取る。ドロワーは普段隠れていて、開いたときだけ出る。",
+  },
+  {
+    a: "table",
+    b: "datagrid",
+    distinction:
+      "テーブルは値を並べて見せる。データグリッドは並べ替え・選択・編集など操作を伴う。",
+  },
+  {
+    a: "barchart",
+    b: "linechart",
+    distinction:
+      "棒グラフは項目どうしの量を比べる。折れ線グラフは時間に沿った変化を読む。",
+  },
+  {
+    a: "donut",
+    b: "gauge",
+    distinction:
+      "ドーナツチャートは全体に対する内訳の割合を示す。ゲージは1つの値が上限のどこまで達したかを示す。",
+  },
+  {
+    a: "heatmap",
+    b: "barchart",
+    distinction:
+      "ヒートマップは2つの軸の組み合わせを色の濃淡で示す。棒グラフは1つの軸の量を長さで示す。",
+  },
+  {
+    a: "sparkline",
+    b: "linechart",
+    distinction:
+      "スパークラインは軸も目盛りも省いた小さな推移。折れ線グラフは軸と目盛りを持ち、値を読み取れる。",
+  },
+  {
+    a: "chip",
+    b: "tagsinput",
+    distinction:
+      "チップは選んだ条件を表す表示で、押して外す。タグ入力は文字を打って新しい札を足す入力欄。",
+  },
+  {
+    a: "helpertext",
+    b: "inlinevalidation",
+    distinction:
+      "ヘルパーテキストは入力前に形式を伝える補足。その場検証は入力後に不備を知らせる。",
+  },
+  {
+    a: "errormessage",
+    b: "inlinevalidation",
+    distinction:
+      "エラーメッセージは処理に失敗した結果を伝える。その場検証は入力の不備をその場で知らせる。",
+  },
+  {
+    a: "commandpalette",
+    b: "searchfield",
+    distinction:
+      "コマンドパレットは機能名を打って操作を実行する。検索フィールドは打った語で内容を探す。",
+  },
+  {
+    a: "megamenu",
+    b: "dropdown",
+    distinction:
+      "メガメニューは複数列の大きな一覧を一度に見せる。ドロップダウンは短い操作の一覧を開く。",
+  },
+  {
+    a: "toolbar",
+    b: "menubar",
+    distinction:
+      "ツールバーはアイコンで操作を1回で実行する。メニューバーは見出しを押して一覧を開く。",
+  },
+  {
+    a: "lightbox",
+    b: "modal",
+    distinction:
+      "ライトボックスは画像を大きく見せるための表示。モーダルは確認や入力のためのダイアログ。",
+  },
+  {
+    a: "countdown",
+    b: "progressbar",
+    distinction:
+      "カウントダウンは残り時間を数字で減らす。プログレスバーは進み具合を棒の長さで示す。",
+  },
+  {
+    a: "hero",
+    b: "banner",
+    distinction:
+      "ヒーローはページ冒頭の大きな領域で、何のページかを伝える。バナーは告知を帯で知らせる。",
+  },
+  {
+    a: "stickyheader",
+    b: "appbar",
+    distinction:
+      "追従ヘッダーは一覧の見出しを残すためのもの。アプリバーは画面名と操作を置く上部の帯。",
+  },
 ];
 
 export const CONFUSABLE: Record<string, string[]> = CONFUSABLE_PAIRS.reduce(
@@ -558,7 +762,7 @@ export const QUESTIONS: Question[] = [
     nameJa: "ドロップゾーン",
     nameEn: "Dropzone",
     reading: "どろっぷぞーん",
-    aliases: ["ファイルアップロード", "ドラッグ&ドロップ領域"],
+    aliases: ["ドラッグ&ドロップ領域", "ドロップエリア"],
     description:
       "ファイルをドラッグ&ドロップ、またはタップして選ぶ領域。",
     exampleInstruction: "資料の追加はドロップゾーンにして、ドラッグでも選べるようにして。",
@@ -810,13 +1014,713 @@ export const QUESTIONS: Question[] = [
     nameJa: "インライン編集",
     nameEn: "Inline edit",
     reading: "いんらいんへんしゅう",
-    aliases: ["その場編集", "クリックで編集"],
+    aliases: ["その場編集", "ダブルクリック編集"],
     description:
       "表示中の文字をその場で編集可能にし、別画面へ移らずに更新する操作。",
     exampleInstruction: "タスク名はインライン編集にして、ダブルクリックで直せるようにして。",
     reversePrompt: "一覧の文字を、別画面に移らずその場で直せるようにしたい。",
     demoType: "inlineedit",
     category: "form",
+  },
+  {
+    id: "treeview",
+    kind: "term",
+    nameJa: "ツリービュー",
+    nameEn: "Tree view",
+    reading: "つりーびゅー",
+    aliases: ["ツリー", "階層リスト"],
+    description:
+      "親子の階層を展開・折りたたみしながら辿る一覧。フォルダ構成や組織図のように入れ子の関係を見せる。",
+    exampleInstruction: "ファイル一覧はツリービューにして、フォルダを開閉できるようにして。",
+    reversePrompt: "フォルダの中にフォルダが入る構造を、開閉しながら辿れるようにしたい。",
+    demoType: "treeview",
+    category: "data",
+  },
+  {
+    id: "datagrid",
+    kind: "term",
+    nameJa: "データグリッド",
+    nameEn: "Data grid",
+    reading: "でーたぐりっど",
+    aliases: ["グリッドテーブル", "編集可能な表"],
+    description:
+      "行と列を並べ、並べ替え・選択・編集までできる表。単なる表示用の表より操作が多い。",
+    exampleInstruction: "管理画面の一覧はデータグリッドにして、列で並べ替えできるようにして。",
+    reversePrompt: "一覧を表で見せたい。列の見出しを押して並べ替え、行も選べるようにしたい。",
+    demoType: "datagrid",
+    category: "data",
+  },
+  {
+    id: "barchart",
+    kind: "term",
+    nameJa: "棒グラフ",
+    nameEn: "Bar chart",
+    reading: "ぼうぐらふ",
+    aliases: ["バーチャート"],
+    description:
+      "項目ごとの量を棒の長さで比べるグラフ。大小の比較に向き、時系列の連続性は表しにくい。",
+    exampleInstruction: "月別の売上は棒グラフにして、多い月が一目で分かるようにして。",
+    reversePrompt: "項目どうしの量の大小を、長さで見比べられるようにしたい。",
+    demoType: "barchart",
+    category: "data",
+  },
+  {
+    id: "linechart",
+    kind: "term",
+    nameJa: "折れ線グラフ",
+    nameEn: "Line chart",
+    reading: "おれせんぐらふ",
+    aliases: ["ラインチャート"],
+    description:
+      "時間に沿った値の変化を線でつなぐグラフ。増減や傾向を読むのに向く。",
+    exampleInstruction: "日ごとのアクセス数は折れ線グラフにして、増減の傾向を見せて。",
+    reversePrompt: "時間とともに値がどう変わったかを、線の傾きで読めるようにしたい。",
+    demoType: "linechart",
+    category: "data",
+  },
+  {
+    id: "donut",
+    kind: "term",
+    nameJa: "ドーナツチャート",
+    nameEn: "Donut chart",
+    reading: "どーなつちゃーと",
+    aliases: ["ドーナツグラフ", "円グラフ"],
+    description:
+      "円を輪切りにして構成比を見せるグラフ。中央が空くぶん、合計値を中央に置ける。",
+    exampleInstruction: "流入元の内訳はドーナツチャートにして、中央に合計を出して。",
+    reversePrompt: "全体に対する内訳の割合を、円を分けて見せたい。",
+    demoType: "donut",
+    category: "data",
+  },
+  {
+    id: "gauge",
+    kind: "term",
+    nameJa: "ゲージ",
+    nameEn: "Gauge",
+    reading: "げーじ",
+    aliases: ["メーター", "ゲージチャート"],
+    description:
+      "現在値が上限に対してどのあたりかを、弧や針で示す表示。達成度や負荷の目安に使う。",
+    exampleInstruction: "ストレージ使用量はゲージで、上限に近づいたら色を変えて。",
+    reversePrompt: "いまの値が上限までどのくらいかを、弧の伸びで示したい。",
+    demoType: "gauge",
+    category: "data",
+  },
+  {
+    id: "heatmap",
+    kind: "term",
+    nameJa: "ヒートマップ",
+    nameEn: "Heatmap",
+    reading: "ひーとまっぷ",
+    aliases: ["ヒートマップチャート"],
+    description:
+      "格子を色の濃淡で塗り、値の大小を面で見せる表示。密なデータの偏りを探すのに向く。",
+    exampleInstruction: "曜日と時間帯ごとの利用数をヒートマップにして、混む時間を分かるようにして。",
+    reversePrompt: "縦横の組み合わせごとの値の大小を、色の濃さで見比べたい。",
+    demoType: "heatmap",
+    category: "data",
+  },
+  {
+    id: "sparkline",
+    kind: "term",
+    nameJa: "スパークライン",
+    nameEn: "Sparkline",
+    reading: "すぱーくらいん",
+    aliases: ["ミニチャート"],
+    description:
+      "軸や目盛りを省いた小さな折れ線。表の行内など狭い場所に傾向だけを添える。",
+    exampleInstruction: "一覧の各行にスパークラインを添えて、直近の推移が分かるようにして。",
+    reversePrompt: "表の行の中に、目盛りなしの小さな推移だけを添えたい。",
+    demoType: "sparkline",
+    category: "data",
+  },
+  {
+    id: "legend",
+    kind: "term",
+    nameJa: "凡例",
+    nameEn: "Legend",
+    reading: "はんれい",
+    aliases: ["レジェンド", "凡例表示"],
+    description:
+      "グラフの色や線が何を表すかを示す対応表。押して表示を切り替えられることも多い。",
+    exampleInstruction: "グラフの下に凡例を置いて、色と項目名の対応が分かるようにして。",
+    reversePrompt: "グラフの色が何の項目なのかを、対応表で示したい。",
+    demoType: "legend",
+    category: "data",
+  },
+  {
+    id: "filterbar",
+    kind: "term",
+    nameJa: "フィルターバー",
+    nameEn: "Filter bar",
+    reading: "ふぃるたーばー",
+    aliases: ["絞り込みバー", "フィルタ"],
+    description:
+      "一覧の上に置き、条件を指定して表示を絞り込む入力の並び。適用中の条件も見せる。",
+    exampleInstruction: "一覧の上にフィルターバーを置いて、状態と期間で絞り込めるようにして。",
+    reversePrompt: "一覧の上で条件を指定して、表示する行を減らしたい。",
+    demoType: "filterbar",
+    category: "data",
+  },
+  {
+    id: "appbar",
+    kind: "term",
+    nameJa: "アプリバー",
+    nameEn: "App bar",
+    reading: "あぷりばー",
+    aliases: ["トップバー", "ヘッダーバー"],
+    description:
+      "画面上部に固定し、画面名と主要な操作を置く横長の領域。スクロールしても残る。",
+    exampleInstruction: "画面上部のアプリバーに、戻るボタンと画面名を置いて。",
+    reversePrompt: "画面上部に、画面名と戻る操作を常に残しておきたい。",
+    demoType: "appbar",
+    category: "layout",
+  },
+  {
+    id: "footer",
+    kind: "term",
+    nameJa: "フッター",
+    nameEn: "Footer",
+    reading: "ふったー",
+    aliases: ["ページ下部", "フッタ"],
+    description:
+      "画面やページの末尾に置く領域。著作権表示や補助リンクなど、本文より優先度の低い情報をまとめる。",
+    exampleInstruction: "ページのフッターに、利用規約とプライバシーポリシーのリンクを置いて。",
+    reversePrompt: "本文のあとに、補助的なリンクをまとめて置きたい。",
+    demoType: "footer",
+    category: "layout",
+  },
+  {
+    id: "hero",
+    kind: "term",
+    nameJa: "ヒーロー",
+    nameEn: "Hero",
+    reading: "ひーろー",
+    aliases: ["ヒーローセクション", "メインビジュアル"],
+    description:
+      "ページの冒頭に置く大きな領域。何のページかを一目で伝える見出しと主要な操作をまとめる。",
+    exampleInstruction: "トップページのヒーローに、サービス名と開始ボタンを大きく置いて。",
+    reversePrompt: "ページを開いた瞬間に、何のページかと主要な操作を大きく見せたい。",
+    demoType: "hero",
+    category: "layout",
+  },
+  {
+    id: "divider",
+    kind: "term",
+    nameJa: "ディバイダー",
+    nameEn: "Divider",
+    reading: "でぃばいだー",
+    aliases: ["区切り線", "セパレーター"],
+    description:
+      "内容のまとまりを分ける細い線。余白だけでは伝わりにくい区切りを明示する。",
+    exampleInstruction: "設定項目のまとまりの間にディバイダーを入れて、区切りを分かりやすくして。",
+    reversePrompt: "項目のまとまりの境目を、細い線で示したい。",
+    demoType: "divider",
+    category: "layout",
+  },
+  {
+    id: "stickyheader",
+    kind: "term",
+    nameJa: "追従ヘッダー",
+    nameEn: "Sticky header",
+    reading: "ついじゅうへっだー",
+    aliases: ["固定ヘッダー", "スティッキーヘッダー"],
+    description:
+      "スクロールしても画面上部に留まる見出し。長い一覧でも列の意味を見失わない。",
+    exampleInstruction: "長い一覧の見出しは追従ヘッダーにして、スクロールしても残るようにして。",
+    reversePrompt: "長い一覧を下までスクロールしても、見出しを画面に残しておきたい。",
+    demoType: "stickyheader",
+    category: "layout",
+  },
+  {
+    id: "codeblock",
+    kind: "term",
+    nameJa: "コードブロック",
+    nameEn: "Code block",
+    reading: "こーどぶろっく",
+    aliases: ["コード表示", "コードスニペット"],
+    description:
+      "等幅フォントでコードを整形して見せる領域。コピーや折り返しの制御を添えることが多い。",
+    exampleInstruction: "設定例はコードブロックで見せて、コピーボタンを付けて。",
+    reversePrompt: "プログラムの例を、字下げを保ったまま読める形で見せたい。",
+    demoType: "codeblock",
+    category: "content",
+  },
+  {
+    id: "kbd",
+    kind: "term",
+    nameJa: "キー表示",
+    nameEn: "Kbd",
+    reading: "きーひょうじ",
+    aliases: ["キーボードキー表示", "キーキャップ"],
+    description:
+      "キーボードのキーを、押すべき物理キーの形で示す小さな表示。ショートカットの案内に使う。",
+    exampleInstruction: "検索のショートカットはキー表示で「Ctrl + K」と添えて。",
+    reversePrompt: "ショートカットのキーを、実際のキーの形で示したい。",
+    demoType: "kbd",
+    category: "content",
+  },
+  {
+    id: "multiselect",
+    kind: "term",
+    nameJa: "マルチセレクト",
+    nameEn: "Multi-select",
+    reading: "まるちせれくと",
+    aliases: ["複数選択", "複数選択セレクト"],
+    description:
+      "一覧から複数の値を選べる選択欄。選んだ値は札やカンマ区切りで見せる。",
+    exampleInstruction: "タグの絞り込みはマルチセレクトにして、複数の条件を選べるようにして。",
+    reversePrompt: "一覧から1つではなく、いくつでも選べるようにしたい。",
+    demoType: "multiselect",
+    category: "form",
+  },
+  {
+    id: "tagsinput",
+    kind: "term",
+    nameJa: "タグ入力",
+    nameEn: "Tags input",
+    reading: "たぐにゅうりょく",
+    aliases: ["タグフィールド", "チップ入力"],
+    description:
+      "文字を打って確定すると、その語が札になって並ぶ入力欄。複数の語を溜められる。",
+    exampleInstruction: "記事のキーワードはタグ入力にして、Enterで札を足せるようにして。",
+    reversePrompt: "打ち込んだ語を、確定するたびに札として並べていきたい。",
+    demoType: "tagsinput",
+    category: "form",
+  },
+  {
+    id: "otpinput",
+    kind: "term",
+    nameJa: "ワンタイムコード入力",
+    nameEn: "OTP input",
+    reading: "わんたいむこーどにゅうりょく",
+    aliases: ["確認コード入力", "分割コード入力"],
+    description:
+      "桁ごとに区切った入力欄へ、届いた確認コードを入れる欄。1桁入るごとに次へ移る。",
+    exampleInstruction: "二段階認証のコードはワンタイムコード入力にして、6桁を1マスずつ入れて。",
+    reversePrompt: "6桁の数字を、1桁ずつ区切ったマスに入れさせたい。",
+    demoType: "otpinput",
+    category: "form",
+  },
+  {
+    id: "passwordfield",
+    kind: "term",
+    nameJa: "パスワード欄",
+    nameEn: "Password field",
+    reading: "ぱすわーどらん",
+    aliases: ["パスワード入力", "伏せ字入力"],
+    description:
+      "入力した文字を伏せ字で隠す入力欄。表示を切り替えて確認できるようにする場合が多い。",
+    exampleInstruction: "パスワード欄には、伏せ字の切り替えボタンを付けて。",
+    reversePrompt: "入力した文字を隠したいが、必要なら確認できるようにもしたい。",
+    demoType: "passwordfield",
+    category: "form",
+  },
+  {
+    id: "numberinput",
+    kind: "term",
+    nameJa: "数値入力",
+    nameEn: "Number input",
+    reading: "すうちにゅうりょく",
+    aliases: ["ステッパー入力", "数値フィールド"],
+    description:
+      "数値だけを受け付け、増減ボタンで1つずつ変えられる入力欄。範囲の制限も添える。",
+    exampleInstruction: "数量は数値入力にして、増減ボタンと上限を付けて。",
+    reversePrompt: "数を入れたい。ボタンで1つずつ増やしたり減らしたりもしたい。",
+    demoType: "numberinput",
+    category: "form",
+  },
+  {
+    id: "timeselect",
+    kind: "term",
+    nameJa: "時刻選択",
+    nameEn: "Time select",
+    reading: "じこくせんたく",
+    aliases: ["タイムピッカー", "時刻ピッカー"],
+    description:
+      "時と分を選んで時刻を決める入力。日付の選択とは別に用意することが多い。",
+    exampleInstruction: "予約の開始時刻は時刻選択にして、15分刻みで選べるようにして。",
+    reversePrompt: "日付ではなく、何時何分かを選ばせたい。",
+    demoType: "timeselect",
+    category: "form",
+  },
+  {
+    id: "rangepicker",
+    kind: "term",
+    nameJa: "期間選択",
+    nameEn: "Range picker",
+    reading: "きかんせんたく",
+    aliases: ["レンジピッカー", "日付範囲選択"],
+    description:
+      "始まりと終わりの2点を選んで期間を決める入力。片方だけでは確定しない。",
+    exampleInstruction: "売上の絞り込みは期間選択にして、開始日と終了日を選べるようにして。",
+    reversePrompt: "1日ではなく、始まりと終わりの2つを選んで範囲を決めたい。",
+    demoType: "rangepicker",
+    category: "form",
+  },
+  {
+    id: "fileupload",
+    kind: "term",
+    nameJa: "ファイルアップロード",
+    nameEn: "File upload",
+    reading: "ふぁいるあっぷろーど",
+    aliases: ["ファイル選択", "アップロード欄"],
+    description:
+      "端末のファイルを選んで送る入力。選んだファイル名と進み具合を見せる。",
+    exampleInstruction: "請求書はファイルアップロードにして、PDFだけ受け付けて。",
+    reversePrompt: "端末に入っているファイルを選んで送りたい。",
+    demoType: "fileupload",
+    category: "form",
+  },
+  {
+    id: "fieldset",
+    kind: "term",
+    nameJa: "フィールドセット",
+    nameEn: "Fieldset",
+    reading: "ふぃーるどせっと",
+    aliases: ["入力グループ", "項目グループ"],
+    description:
+      "関係する入力項目をひとまとまりにし、見出しを付けて囲う領域。まとまりの意味を伝える。",
+    exampleInstruction: "住所の入力はフィールドセットで囲って、見出しを付けて。",
+    reversePrompt: "関係する入力欄を、見出し付きのひとまとまりにしたい。",
+    demoType: "fieldset",
+    category: "form",
+  },
+  {
+    id: "helpertext",
+    kind: "term",
+    nameJa: "ヘルパーテキスト",
+    nameEn: "Helper text",
+    reading: "へるぱーてきすと",
+    aliases: ["補足文", "入力ヒント"],
+    description:
+      "入力欄の下に添える短い補足。何を入れるか、どんな形式かを入力前に伝える。",
+    exampleInstruction: "パスワード欄の下にヘルパーテキストで条件を書いて。",
+    reversePrompt: "入力する前に、どんな形式で入れればよいかを短く伝えたい。",
+    demoType: "helpertext",
+    category: "form",
+  },
+  {
+    id: "inlinevalidation",
+    kind: "term",
+    nameJa: "その場検証",
+    nameEn: "Inline validation",
+    reading: "そのばけんしょう",
+    aliases: ["インライン検証", "入力時エラー"],
+    description:
+      "送信を待たず、入力した直後にその欄の不備を知らせる仕組み。直す場所がすぐ分かる。",
+    exampleInstruction: "メール欄はその場検証にして、形式が違えばすぐ赤く出して。",
+    reversePrompt: "送信ボタンを押す前でも、入力の間違いに気づけるようにしたい。",
+    demoType: "inlinevalidation",
+    category: "form",
+  },
+  {
+    id: "checkboxgroup",
+    kind: "term",
+    nameJa: "チェックボックスグループ",
+    nameEn: "Checkbox group",
+    reading: "ちぇっくぼっくすぐるーぷ",
+    aliases: ["複数チェック", "チェック群"],
+    description:
+      "同じ問いに対する複数のチェックボックスをまとめたもの。いくつでも選べる。",
+    exampleInstruction: "通知の種類はチェックボックスグループにして、複数選べるようにして。",
+    reversePrompt: "1つの問いに対して、当てはまるものをいくつでも選ばせたい。",
+    demoType: "checkboxgroup",
+    category: "form",
+  },
+  {
+    id: "popconfirm",
+    kind: "term",
+    nameJa: "ポップ確認",
+    nameEn: "Popconfirm",
+    reading: "ぽっぷかくにん",
+    aliases: ["インライン確認", "確認ポップアップ"],
+    description:
+      "操作した要素のすぐそばに小さく出る確認。画面全体を覆わないので、流れを止めにくい。",
+    exampleInstruction: "削除ボタンはポップ確認にして、その場で「削除」「やめる」を選ばせて。",
+    reversePrompt: "取り消せない操作の前に確認したいが、画面全体は覆いたくない。",
+    demoType: "popconfirm",
+    category: "overlay",
+  },
+  {
+    id: "lightbox",
+    kind: "term",
+    nameJa: "ライトボックス",
+    nameEn: "Lightbox",
+    reading: "らいとぼっくす",
+    aliases: ["画像拡大表示", "画像ビューア"],
+    description:
+      "背景を暗く落として画像を大きく見せる表示。閉じるまで元の画面は操作できない。",
+    exampleInstruction: "ギャラリーの画像はライトボックスで、押したら大きく見せて。",
+    reversePrompt: "一覧の画像を押したら、背景を暗くして大きく見せたい。",
+    demoType: "lightbox",
+    category: "overlay",
+  },
+  {
+    id: "coachmark",
+    kind: "term",
+    nameJa: "コーチマーク",
+    nameEn: "Coach mark",
+    reading: "こーちまーく",
+    aliases: ["操作案内", "オンボーディングヒント"],
+    description:
+      "特定の要素を指して、初回だけ操作を案内する吹き出し。画面全体の説明とは違い、対象を絞る。",
+    exampleInstruction: "初回だけ、新しいボタンにコーチマークで案内を出して。",
+    reversePrompt: "初めて来た人に、この部分の使い方だけを指して教えたい。",
+    demoType: "coachmark",
+    category: "overlay",
+  },
+  {
+    id: "notification",
+    kind: "term",
+    nameJa: "通知センター",
+    nameEn: "Notification center",
+    reading: "つうちせんたー",
+    aliases: ["通知一覧", "通知パネル"],
+    description:
+      "届いた通知を一覧に溜めて見返せる場所。一時的に消えるトーストと違い、履歴が残る。",
+    exampleInstruction: "通知は通知センターに溜めて、未読が分かるようにして。",
+    reversePrompt: "一時的に消えるのではなく、あとから見返せる形で通知を残したい。",
+    demoType: "notification",
+    category: "feedback",
+  },
+  {
+    id: "sheet",
+    kind: "term",
+    nameJa: "シート",
+    nameEn: "Sheet",
+    reading: "しーと",
+    aliases: ["補助パネル", "サイドシート"],
+    description:
+      "画面の端から出る補助的なパネル。ドロワーより狭く、詳細の確認や短い編集に使う。",
+    exampleInstruction: "行を押したらシートで詳細を出して、一覧は見えたままにして。",
+    reversePrompt: "一覧を隠さずに、選んだ項目の詳細を横から出したい。",
+    demoType: "sheet",
+    category: "overlay",
+  },
+  {
+    id: "commandpalette",
+    kind: "term",
+    nameJa: "コマンドパレット",
+    nameEn: "Command palette",
+    reading: "こまんどぱれっと",
+    aliases: ["コマンド検索", "クイックコマンド"],
+    description:
+      "ショートカットで開き、機能名を打ち込んで実行する検索窓。メニューを辿らず目的の操作に届く。",
+    exampleInstruction: "どの画面からでもコマンドパレットを開いて、機能を検索できるようにして。",
+    reversePrompt: "メニューを辿らず、機能名を打ち込んでその操作を実行したい。",
+    demoType: "commandpalette",
+    category: "navigation",
+  },
+  {
+    id: "megamenu",
+    kind: "term",
+    nameJa: "メガメニュー",
+    nameEn: "Mega menu",
+    reading: "めがめにゅー",
+    aliases: ["大型メニュー", "多列メニュー"],
+    description:
+      "項目にカーソルを合わせると、複数列の大きな一覧が開くメニュー。階層の深い項目を一度に見せる。",
+    exampleInstruction: "商品カテゴリはメガメニューにして、分類をまとめて見せて。",
+    reversePrompt: "項目が多いので、カーソルを合わせたときに複数列でまとめて見せたい。",
+    demoType: "megamenu",
+    category: "navigation",
+  },
+  {
+    id: "menubar",
+    kind: "term",
+    nameJa: "メニューバー",
+    nameEn: "Menu bar",
+    reading: "めにゅーばー",
+    aliases: ["メニュー行", "横並びメニュー"],
+    description:
+      "横一列に並んだメニューの見出し。押すと各項目の一覧が開く。",
+    exampleInstruction: "アプリ上部にメニューバーを置いて、「ファイル」「編集」を並べて。",
+    reversePrompt: "画面上部に、横並びのメニュー見出しを置きたい。",
+    demoType: "menubar",
+    category: "navigation",
+  },
+  {
+    id: "toolbar",
+    kind: "term",
+    nameJa: "ツールバー",
+    nameEn: "Toolbar",
+    reading: "つーるばー",
+    aliases: ["操作バー", "アイコンバー"],
+    description:
+      "よく使う操作をアイコンで横に並べた帯。メニューを開かず1回で実行できる。",
+    exampleInstruction: "エディタの上にツールバーを置いて、太字や保存を並べて。",
+    reversePrompt: "よく使う操作を、メニューを開かず1回で押せるようにしたい。",
+    demoType: "toolbar",
+    category: "navigation",
+  },
+  {
+    id: "backtotop",
+    kind: "term",
+    nameJa: "先頭へ戻る",
+    nameEn: "Back to top",
+    reading: "せんとうへもどる",
+    aliases: ["トップへ戻る", "ページ先頭ボタン"],
+    description:
+      "長いページの途中から、先頭へ一気に戻るボタン。スクロールが深いときだけ現れることが多い。",
+    exampleInstruction: "長い記事では、右下に先頭へ戻るボタンを出して。",
+    reversePrompt: "長いページの下の方から、一気に上へ戻りたい。",
+    demoType: "backtotop",
+    category: "navigation",
+  },
+  {
+    id: "skiplink",
+    kind: "term",
+    nameJa: "スキップリンク",
+    nameEn: "Skip link",
+    reading: "すきっぷりんく",
+    aliases: ["本文へスキップ", "スキップナビ"],
+    description:
+      "キーボード操作の最初に現れ、繰り返しのナビゲーションを飛ばして本文へ移るリンク。",
+    exampleInstruction: "キーボード操作向けに、最初にスキップリンクを置いて。",
+    reversePrompt: "キーボードだけで操作する人が、毎回のメニューを飛ばして本文へ行けるようにしたい。",
+    demoType: "skiplink",
+    category: "navigation",
+  },
+  {
+    id: "loadmore",
+    kind: "term",
+    nameJa: "もっと見る",
+    nameEn: "Load more",
+    reading: "もっとみる",
+    aliases: ["追加読み込み", "さらに読み込む"],
+    description:
+      "一覧の末尾に置き、押すと続きを読み込むボタン。自動で読み込む方式より位置が分かりやすい。",
+    exampleInstruction: "一覧は最初の20件だけ出して、下に「もっと見る」を置いて。",
+    reversePrompt: "一覧の続きを、自動ではなく押したときだけ読み込みたい。",
+    demoType: "loadmore",
+    category: "navigation",
+  },
+  {
+    id: "dotindicator",
+    kind: "term",
+    nameJa: "ドットインジケーター",
+    nameEn: "Dot indicator",
+    reading: "どっといんじけーたー",
+    aliases: ["ページドット", "インジケーター"],
+    description:
+      "横に並んだ点で、いま何枚目かを示す表示。カルーセルで現在位置を伝える。",
+    exampleInstruction: "カルーセルの下にドットインジケーターを置いて、何枚目かを示して。",
+    reversePrompt: "横に並んだ何枚ものうち、いまどれを見ているかを点で示したい。",
+    demoType: "dotindicator",
+    category: "navigation",
+  },
+  {
+    id: "anchorlinks",
+    kind: "term",
+    nameJa: "目次リンク",
+    nameEn: "Anchor links",
+    reading: "もくじりんく",
+    aliases: ["ページ内リンク", "アンカーリンク"],
+    description:
+      "同じページ内の見出しへ飛ぶリンクの一覧。長い文書の全体像と現在地を示す。",
+    exampleInstruction: "長い仕様書の冒頭に目次リンクを置いて、各節へ飛べるようにして。",
+    reversePrompt: "長い文書の中で、各節へすぐ飛べる一覧を冒頭に置きたい。",
+    demoType: "anchorlinks",
+    category: "navigation",
+  },
+  {
+    id: "progressnav",
+    kind: "term",
+    nameJa: "読了バー",
+    nameEn: "Reading progress",
+    reading: "どくりょうばー",
+    aliases: ["読了位置バー", "スクロール進捗"],
+    description:
+      "記事をどこまで読んだかを、上部の細いバーで示す表示。残りの量が分かる。",
+    exampleInstruction: "長い記事の上部に読了バーを出して、どこまで読んだか分かるようにして。",
+    reversePrompt: "記事のどこまで読んだかを、細いバーで示したい。",
+    demoType: "progressnav",
+    category: "navigation",
+  },
+  {
+    id: "pulltorefresh",
+    kind: "term",
+    nameJa: "引っ張って更新",
+    nameEn: "Pull to refresh",
+    reading: "ひっぱってこうしん",
+    aliases: ["プルリフレッシュ", "引っぱり更新"],
+    description:
+      "一覧を下へ引っ張ると最新を取り直す操作。スマホで慣れた更新の仕方。",
+    exampleInstruction: "スマホの一覧は引っ張って更新できるようにして。",
+    reversePrompt: "スマホで一覧を下へ引っ張ったら、最新を取り直したい。",
+    demoType: "pulltorefresh",
+    category: "navigation",
+  },
+  {
+    id: "errormessage",
+    kind: "term",
+    nameJa: "エラーメッセージ",
+    nameEn: "Error message",
+    reading: "えらーめっせーじ",
+    aliases: ["エラー文", "失敗表示"],
+    description:
+      "処理に失敗した理由と、次にできることを伝える文。謝るより、どう直すかを書く。",
+    exampleInstruction: "保存に失敗したら、エラーメッセージで理由と再試行を出して。",
+    reversePrompt: "失敗したときに、何が起きたかと次に何をすればよいかを伝えたい。",
+    demoType: "errormessage",
+    category: "feedback",
+  },
+  {
+    id: "callout",
+    kind: "term",
+    nameJa: "コールアウト",
+    nameEn: "Callout",
+    reading: "こーるあうと",
+    aliases: ["注意ブロック", "補足ボックス"],
+    description:
+      "本文から目立たせたい補足を、枠と色で囲んで示すブロック。注意や前提の共有に使う。",
+    exampleInstruction: "この設定は課金に影響するので、コールアウトで目立たせて。",
+    reversePrompt: "本文の中で、特に読んでほしい注意を枠で目立たせたい。",
+    demoType: "callout",
+    category: "feedback",
+  },
+  {
+    id: "countdown",
+    kind: "term",
+    nameJa: "カウントダウン",
+    nameEn: "Countdown",
+    reading: "かうんとだうん",
+    aliases: ["残り時間表示", "タイマー表示"],
+    description:
+      "期限までの残り時間を減らしながら見せる表示。締切のある操作の判断を助ける。",
+    exampleInstruction: "セール終了まではカウントダウンで残り時間を出して。",
+    reversePrompt: "期限までの残りを、減っていく数字で見せたい。",
+    demoType: "countdown",
+    category: "feedback",
+  },
+  {
+    id: "loadingbar",
+    kind: "term",
+    nameJa: "ローディングバー",
+    nameEn: "Loading bar",
+    reading: "ろーでぃんぐばー",
+    aliases: ["読み込みバー", "プログレスライン"],
+    description:
+      "画面上部などに細く出る読み込み中の帯。画面全体を覆わず、待っていることを伝える。",
+    exampleInstruction: "画面遷移中は上部にローディングバーを出して。",
+    reversePrompt: "画面を覆わずに、いま読み込み中だと伝えたい。",
+    demoType: "loadingbar",
+    category: "feedback",
+  },
+  {
+    id: "inlinealert",
+    kind: "term",
+    nameJa: "インラインアラート",
+    nameEn: "Inline alert",
+    reading: "いんらいんあらーと",
+    aliases: ["その場の注意", "インライン通知"],
+    description:
+      "画面全体ではなく、関係する場所のすぐそばに出す注意表示。文脈から切り離さずに伝える。",
+    exampleInstruction: "この項目だけの注意は、インラインアラートで欄の近くに出して。",
+    reversePrompt: "画面全体に出すほどではない注意を、関係する場所のそばに出したい。",
+    demoType: "inlinealert",
+    category: "feedback",
   },
 ];
 
@@ -981,6 +1885,21 @@ export const CATEGORY_LABELS: Record<QuestionCategory, string> = {
   data: "データ表示",
   layout: "レイアウト",
 };
+
+/**
+ * 用語図鑑に並べる分類の順序。
+ * ここに無いカテゴリの用語は図鑑に出ないので、全カテゴリを必ず含める（テストで検証）。
+ */
+export const CATEGORY_ORDER: QuestionCategory[] = [
+  "overlay",
+  "feedback",
+  "navigation",
+  "form",
+  "disclosure",
+  "content",
+  "data",
+  "layout",
+];
 
 /** 同カテゴリの候補が足りないときの代替カテゴリ（近い系統から補充する）。 */
 export const CATEGORY_FALLBACK: Record<QuestionCategory, QuestionCategory[]> = {

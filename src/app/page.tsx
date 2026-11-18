@@ -8,6 +8,7 @@ import { useSettings, saveSettings, type Settings } from "@/lib/use-settings";
 import { bestScoreFor, scoreKey, useBestScores } from "@/lib/use-best-scores";
 import { dueCount, totalAnswered, weakQuestionIds, type History } from "@/lib/history";
 import { CONFUSABLE_PAIRS, KEYBOARD_QUESTIONS, QUESTIONS } from "@/lib/questions";
+import { PRACTICAL_CASES } from "@/lib/practical-cases";
 import {
   QUESTION_COUNT_OPTIONS,
   TIME_LIMIT_OPTIONS,
@@ -208,6 +209,16 @@ export default function HomePage() {
             <span className="text-sm font-bold">逆引き</span>
             <span className="text-[11px] opacity-70">
               作りたい動きから名称を答える {questionCount}問
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => start("practical")}
+            className="focus-ring flex flex-col items-start gap-0.5 border border-ink bg-surface px-4 py-3 text-left transition-colors hover:bg-ink hover:text-paper"
+          >
+            <span className="text-sm font-bold">実践ケース</span>
+            <span className="text-[11px] opacity-70">
+              現場で迷う選択を要件から解く {PRACTICAL_CASES.length}問
             </span>
           </button>
           <button

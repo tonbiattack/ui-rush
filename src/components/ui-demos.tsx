@@ -2,6 +2,9 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { EXTRA_DEMOS } from "@/components/ui-demos-extra";
+import { DATA_DEMOS } from "@/components/ui-demos-data";
+import { FORM_DEMOS } from "@/components/ui-demos-form";
+import { NAV_DEMOS } from "@/components/ui-demos-nav";
 
 const cx = (...values: Array<string | false | null | undefined>) =>
   values.filter(Boolean).join(" ");
@@ -893,11 +896,22 @@ const DEMOS: Record<string, () => React.JSX.Element> = {
 
 /** デモが用意されているか（テストと図鑑の出し分けに使う）。 */
 export function hasDemo(demoType: string): boolean {
-  return Boolean(DEMOS[demoType] ?? EXTRA_DEMOS[demoType]);
+  return Boolean(
+    DEMOS[demoType] ??
+      EXTRA_DEMOS[demoType] ??
+      DATA_DEMOS[demoType] ??
+      FORM_DEMOS[demoType] ??
+      NAV_DEMOS[demoType],
+  );
 }
 
 export function UiDemo({ demoType }: { demoType: string }) {
-  const Demo = DEMOS[demoType] ?? EXTRA_DEMOS[demoType];
+  const Demo =
+    DEMOS[demoType] ??
+    EXTRA_DEMOS[demoType] ??
+    DATA_DEMOS[demoType] ??
+    FORM_DEMOS[demoType] ??
+    NAV_DEMOS[demoType];
   if (!Demo) {
     return (
       <p className="rounded-md border border-dashed border-rule-strong p-4 text-sm text-muted">

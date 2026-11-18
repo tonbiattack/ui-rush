@@ -30,6 +30,7 @@ import {
   advance,
   createConfusableSession,
   createKeyboardSession,
+  createPracticalSession,
   createQuizSession,
   createReverseSession,
   createSpacedSession,
@@ -61,6 +62,7 @@ const MODE_TITLES: Record<QuizMode, string> = {
   timeattack: "60秒タイムアタック",
   spaced: "今日の復習",
   spotlight: "UIパーツ探し",
+  practical: "実践ケース",
 };
 
 const DemoPanel = memo(function DemoPanel({ demoType }: { demoType: string }) {
@@ -167,6 +169,9 @@ export function QuizClient({
     }
     if (mode === "reverse") {
       return createReverseSession({ questionCount, timeLimitSec, revealMode });
+    }
+    if (mode === "practical") {
+      return createPracticalSession({ questionCount, timeLimitSec, revealMode });
     }
     if (mode === "keyboard") {
       return createKeyboardSession({ questionCount, timeLimitSec, revealMode });
@@ -465,9 +470,10 @@ export function QuizClient({
   const sessionRemaining = remainingSessionMs(state, now);
   const isTimeAttack = sessionRemaining !== null;
   const promptText =
-    session.mode === "reverse" || session.mode === "spaced"
+    question?.casePrompt ??
+    (session.mode === "reverse" || session.mode === "spaced"
       ? questionData.reversePrompt
-      : null;
+      : null);
 
   return (
     <main className="flex flex-1 flex-col">
@@ -647,9 +653,11 @@ export function QuizClient({
                       ? "どちらの名前か、見分けてください"
                       : session.mode === "reverse" || session.mode === "spaced"
                         ? "この要件に合うUIはどれか"
-                        : session.mode === "keyboard"
-                          ? "この操作に使うキーはどれか"
-                          : "このUIの名前はどれか"}
+                        : session.mode === "practical"
+                          ? "この要件に合うUIはどれか。他の選択肢が合わない理由も出ます"
+                          : session.mode === "keyboard"
+                            ? "この操作に使うキーはどれか"
+                            : "このUIの名前はどれか"}
                   </p>
                 }
               >
@@ -896,6 +904,38 @@ export function QuizClient({
                 </p>
               )}
             </dl>
+          )}
+
+          {/* 実践ケース: 正解の理由と、他の選択肢が合わない理由を並べる。 */}
+          {question.caseReason && question.caseDistractorReasons && (
+            <div
+              data-testid="case-reasons"
+              className="mt-3 max-w-[42rem] border border-rule-strong border-l-2 border-l-ink bg-surface px-3 py-2"
+            >
+              <p className="text-[10px] font-bold text-ink">なぜこの選択か</p>
+              <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+                {question.caseReason}
+              </p>
+              <p className="mt-2 text-[10px] font-bold text-ink">他の選択肢が合わない理由</p>
+              <ul className="mt-1 space-y-1">
+                {question.choices.map((choiceId, index) => {
+                  if (choiceId === question.questionId) {
+                    return null;
+                  }
+                  const choice = getQuestion(choiceId);
+                  const reason = question.caseDistractorReasons?.[index];
+                  if (!choice || !reason) {
+                    return null;
+                  }
+                  return (
+                    <li key={choiceId} className="text-xs leading-relaxed text-ink-soft">
+                      <span className="font-bold text-ink">{choice.nameJa}</span>
+                      <span className="mt-0.5 block">{reason}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
 
           <div className="mt-3 flex max-w-[42rem] flex-wrap gap-2 [&>*]:min-w-[16rem] [&>*]:flex-1">

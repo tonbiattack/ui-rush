@@ -2,19 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TermCard } from "@/components/term-card";
 import { Masthead } from "@/components/ui-kit";
-import { CATEGORY_LABELS, QUESTIONS, type QuestionCategory } from "@/lib/questions";
+import { CATEGORY_LABELS, CATEGORY_ORDER, QUESTIONS } from "@/lib/questions";
 
 export const metadata: Metadata = {
   title: "用語図鑑 | UI Rush",
 };
-
-const CATEGORY_ORDER: QuestionCategory[] = [
-  "overlay",
-  "feedback",
-  "navigation",
-  "form",
-  "disclosure",
-];
 
 export default function TermsPage() {
   const grouped = CATEGORY_ORDER.map((category) => ({

@@ -99,6 +99,7 @@ const MODE_LABELS: Record<QuizMode, string> = {
   timeattack: "60秒タイムアタック",
   spaced: "今日の復習",
   spotlight: "UIパーツ探し",
+  practical: "実践ケース",
 };
 
 export function ResultClient() {
